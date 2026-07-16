@@ -1,133 +1,106 @@
-# AI Novel Generation System
+# Novel Gen
 
-> 基于 Multi-Agent 架构的 AI 长篇小说生成系统
+> 基于多 Agent 协作的长篇小说创作系统，从创意、世界观和滚动大纲到场景正文、审校与版本管理。
 
-## 项目概述
+## 当前状态
 
-本项目旨在通过多个专业化 Agent 协作，实现从创意到完整长篇小说的自动化生成。
+核心创作链路已完成并接入持续集成：项目创建、世界观、滚动大纲、章节与场景写作、审校、记忆召回、版本管理和创作工作台均可运行。
 
-### 核心功能
+## 已实现能力
 
-- **世界观构建**：通过 Agent 自动生成完整的世界观设定
-- **大纲生成**：智能生成小说大纲结构
-- **章节写作**：自动化生成章节内容
-- **角色管理**：角色卡系统，支持复杂角色关系
-- **审校机制**：自动审校，保证内容质量
+- 用户认证与项目管理
+- 世界观生成，以及世界规则和冲突种子的持久化
+- 全书卷契约与每批最多五章的滚动大纲规划，支持跨卷续规划和追加新卷
+- 章节细纲、场景展开、SSE 流式写作、保存与断线恢复
+- 角色档案、情节线、伏笔、长期记忆和 pgvector 语义召回
+- Story Bible、内容版本、提纲版本、DHO 重规划候选和人工确认
+- 审校、质量状态、成本预算、LLM 调用指标和持久化生成任务
+- React 创作工作台、离线编辑、任务轮询和项目风格档案
 
 ## 技术栈
 
-### 后端
-
-- **框架**: Python 3.11+ / FastAPI
-- **数据库**: PostgreSQL 16 + pgvector
-- **向量检索**: PostgreSQL pgvector（HNSW cosine）
-- **缓存**: Redis
-- **LLM**: Anthropic Claude / DeepSeek / OpenAI
-
-### 前端
-
-- **框架**: React 18 + TypeScript
-- **状态管理**: Zustand
-- **样式**: TailwindCSS
-- **构建**: Vite
+- 后端：Python 3.11、FastAPI、PostgreSQL 16 + pgvector、Redis、Alembic
+- 前端：React 18、TypeScript、Zustand、Tailwind CSS、Vite
+- 模型接入：OpenAI 兼容接口、Anthropic、DeepSeek
 
 ## 快速开始
 
 ### 前置条件
 
-- Docker & Docker Compose
+- Docker 与 Docker Compose
 - Python 3.11+
-- Node.js 18+
+- Node.js 20.19+
+- Poetry
 
 ### 1. 启动基础设施
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 2. 后端设置
+### 2. 配置并启动后端
 
 ```bash
 cd backend
-
-# 安装依赖
 poetry install
 
-# 复制环境变量
-cp .env.example .env
-# 编辑 .env 填入你的 API Key
+# Windows PowerShell
+Copy-Item .env.example .env
 
-# 运行数据库迁移
+# 在 .env 中至少配置：
+# LLM_PROVIDER=openai
+# LLM_BASE_URL=<兼容 OpenAI 的服务地址>
+# LLM_API_KEY=<你的密钥>
+# LLM_MODEL=<模型名称>
+
 poetry run alembic upgrade head
-
-# 启动服务
 poetry run uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. 前端设置
+### 3. 配置并启动前端
 
 ```bash
 cd frontend
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
+npm ci
 npm run dev
 ```
 
 ### 4. 访问应用
 
-- 前端: http://localhost:5173
-- 后端 API: http://localhost:8000
-- API 文档: http://localhost:8000/docs
+- 前端：http://localhost:5173
+- 后端 API：http://localhost:8000
+- OpenAPI 文档：http://localhost:8000/docs
+
+## 验证
+
+```bash
+# 后端
+cd backend
+poetry run ruff check app tests
+poetry run pytest -q
+
+# 前端
+cd frontend
+npm run lint
+npm test
+npm run build
+```
 
 ## 项目结构
 
-```
+```text
 novel-gen/
-├── backend/                 # Python 后端
-│   ├── app/
-│   │   ├── api/            # API 路由
-│   │   ├── agents/         # Agent 实现
-│   │   ├── core/           # 核心工具
-│   │   ├── db/             # 数据库
-│   │   ├── llm/            # LLM 适配层
-│   │   ├── memory/         # Memory 层
-│   │   ├── models/         # 数据模型
-│   │   ├── pipeline/       # Pipeline 编排
-│   │   └── utils/          # 工具函数
-│   ├── alembic/             # 数据库迁移
-│   └── tests/               # 测试
-├── frontend/               # React 前端
-│   ├── src/
-│   │   ├── api/            # API 调用
-│   │   ├── components/     # 组件
-│   │   ├── pages/          # 页面
-│   │   ├── stores/         # 状态管理
-│   │   └── types/          # 类型定义
-│   └── ...
-├── docs/                   # 文档
-│   └── plans/              # 计划文档
-└── docker-compose.yml      # 基础设施
+├── backend/                 # FastAPI、Agent、迁移、服务和测试
+├── frontend/                # React 创作界面和前端测试
+├── docs/
+│   ├── architecture/        # 已落地架构说明
+│   └── reviews/             # 历史审查记录
+├── openspec/                # 规格与变更制品
+├── .github/workflows/       # 持续集成
+└── docker-compose.yml       # PostgreSQL + pgvector 与 Redis
 ```
 
-## 开发指南
-
-详见 [开发流程指南](./docs/plans/开发流程指南.md)
-
-## Phase 开发计划
-
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| Phase-01 | 基础设施与项目骨架 | ✅ 完成 |
-| Phase-02 | 世界观 Agent 与大纲 Agent | 📋 待开发 |
-| Phase-03 | 细纲 Agent 与写作 Agent | 📋 待开发 |
-| Phase-03.5 | 角色卡系统 | 📋 待开发 |
-| Phase-04 | Memory 层与 ContextBuilder | 📋 待开发 |
-| Phase-05 | 审校 Agent 与 Coordinator 编排 | 📋 待开发 |
-| Phase-06 | 前端界面 | 📋 待开发 |
-| Phase-07 | 生产级补全 | 📋 待开发 |
+本地开发计划保留在 `docs/plans/`，但不纳入仓库追踪；产品规格以 `openspec/specs/` 为准。
 
 ## License
 

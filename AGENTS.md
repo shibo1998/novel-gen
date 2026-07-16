@@ -245,5 +245,5 @@ Task 1 → Task 2 → Task 3 → ...
 ## 八、参考文档
 
 - [CLAUDE.md](./CLAUDE.md) - Cursor/Claude Code 行为规范
-- [开发流程指南](./docs/plans/开发流程指南.md) - 项目开发流程
-- [Phase 计划文档](./docs/plans/) - 各阶段实现计划
+- [项目架构文档](./docs/architecture/semantic-memory.md) - 语义记忆架构
+- [OpenSpec 规格](./openspec/specs/) - 当前产品规格

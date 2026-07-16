@@ -21,10 +21,9 @@
 
 ```
 novel-gen/
-├── docs/                    # 文档（计划、需求、审查）
-│   ├── plans/               # 执行计划
-│   ├── requirements/       # 需求文档
-│   └── reviews/            # 审查报告
+├── docs/                    # 架构说明与审查记录
+│   ├── architecture/        # 已落地架构
+│   └── reviews/             # 审查报告
 ├── backend/                 # Python 后端
 │   ├── app/                # 应用代码
 │   │   ├── api/            # API 路由
@@ -49,7 +48,7 @@ novel-gen/
 │   │   ├── stores/         # 状态管理
 │   │   └── types/          # 类型定义
 │   └── ...
-├── prompts-doc/            # Prompt 设计文档
+├── openspec/                # 产品规格与变更制品
 └── docker-compose.yml      # 基础设施
 ```
 
@@ -62,19 +61,18 @@ novel-gen/
 
 ## 三、文件命名规范
 
-### 3.1 计划/需求/审查文档
+### 3.1 规格与审查文档
 
 ```
-docs/plans/YYYY-MM-DD-{简短描述}-execution-plan.md
-docs/requirements/YYYY-MM-DD-{简短描述}.md
 docs/reviews/YYYY-MM-DD-{简短描述}-review.md
+openspec/specs/{capability}/spec.md
+openspec/changes/{change-id}/
 ```
 
 **示例**:
 ```
-docs/plans/2026-07-13-phase-01-infrastructure-execution-plan.md
-docs/requirements/2026-07-13-user-authentication.md
 docs/reviews/2026-07-13-code-quality-review.md
+openspec/specs/chapter-rolling-outline/spec.md
 ```
 
 ### 3.2 代码文件
@@ -244,35 +242,17 @@ refactor/{scope}            # 重构分支
 
 ---
 
-## 八、Phase 开发规范
+## 八、功能变更交付规范
 
-### 8.1 Phase 交付检查
-
-每个 Phase 完成后必须验证：
+每次功能变更必须：
 
 ```
-Phase-{N} 交付清单：
-□ 所有计划中的文件已创建
-□ 基础功能可运行
-□ API 端点已测试
-□ 如有数据库变更，迁移成功
-□ 如有前端变更，可正常构建
-□ README/文档已更新
+□ 代码与迁移可运行
+□ 受影响 API 有测试
+□ 后端 Ruff 与 pytest 通过
+□ 前端 lint、测试和构建通过（如涉及前端）
+□ README、OpenSpec 或架构文档已同步
 ```
-
-### 8.2 Phase 顺序
-
-```
-Phase-01 → Phase-02 → Phase-03 → Phase-03.5 → Phase-04 → Phase-05 → Phase-05.5 → Phase-06 → Phase-07
-  基础      世界观     细纲+写作   角色卡       Memory     审校+编排    DHO      前端     生产级
-```
-
-### 8.3 简化选项
-
-| 组件 | 原选型 | 简化方案 |
-|------|--------|----------|
-| Neo4j | 企业版 | Phase 4 前暂用 PostgreSQL |
-| Celery | Redis broker | Phase 1 用 FastAPI 后台任务 |
 
 ---
 
@@ -439,6 +419,5 @@ def test_function_name_should_do_expected_behavior():
 ## 十五、参考文档
 
 - [AGENTS.md](./AGENTS.md) - Agent 协作规范
-- [开发流程指南](./docs/plans/开发流程指南.md)
-- [Phase 计划文档](./docs/plans/)
-- [项目架构文档](./docs/plans/desgin.md)
+- [项目架构文档](./docs/architecture/semantic-memory.md)
+- [OpenSpec 规格](./openspec/specs/)

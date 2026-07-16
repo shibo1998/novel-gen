@@ -30,6 +30,9 @@ backend/1.26
 .omc/
 .omx/
 
+# Local development notes
+docs/plans/
+
 # IDE and operating system
 .idea/
 .vscode/
