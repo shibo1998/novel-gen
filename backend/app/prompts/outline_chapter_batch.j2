@@ -1,0 +1,58 @@
+你是一位资深长篇小说结构师。请只规划当前卷接下来的一个章节批次。
+
+## 核心创意
+{{ core_idea }}
+
+## 风格方向
+{{ tone_style }}
+
+## 世界观硬约束
+{% for c in constraints.hard %}- {{ c }}
+{% endfor %}
+
+## 当前卷完整契约
+- 卷号：{{ volume.number }}
+- 卷名：{{ volume.title }}
+- 固定章号范围：{{ volume.chapter_start }}-{{ volume.chapter_end }}
+- 核心冲突：{{ volume.core_conflict }}
+- 人物弧线：{{ volume.character_arc_stage }}
+- 开场状态：{{ volume.contract.opening_state }}
+- 结局状态：{{ volume.contract.ending_state }}
+- 下卷交接：{{ volume.contract.handoff_hook }}
+- 本卷必须解决：{% for item in volume.contract.must_resolve %}{{ item }}{% if not loop.last %}；{% endif %}{% endfor %}
+
+## 本批次硬边界
+- 只生成第 {{ batch_start }}-{{ batch_end }} 章，共 {{ batch_end - batch_start + 1 }} 章
+- 章号必须连续，不得缺失、重复、越界或提前生成后续章节
+- 当前卷已规划 {{ planned_chapter_count }} / {{ volume.chapter_end - volume.chapter_start + 1 }} 章
+
+## 最近章节上下文
+{% if recent_chapters %}
+{% for ch in recent_chapters %}- 第{{ ch.number }}章《{{ ch.title }}》：{{ ch.goal }}
+{% endfor %}
+{% else %}（这是本卷首批章节）
+{% endif %}
+
+## 活跃伏笔
+{% for f in global_foreshadowings %}- {{ f.name }}：{{ f.description }}
+{% endfor %}
+
+只输出合法 JSON：
+{
+  "chapters": [
+    {
+      "volume": {{ volume.number }},
+      "number": <{{ batch_start }}到{{ batch_end }}中的连续章号>,
+      "title": "<4-8字>",
+      "goal": "<本章叙事目标，1-2句>",
+      "key_events": [{"event_name": "<事件名>", "brief": "<1句描述>"}],
+      "pov_character": "<主视角角色>",
+      "foreshadowing_seeds": [{"name": "<伏笔名>", "brief": "<1句描述>"}]
+    }
+  ],
+  "foreshadowing_additions": [
+    {"name": "<新伏笔名>", "description": "<1句>", "sow_chapter": <章号>, "reap_chapter": <章号或null>}
+  ]
+}
+
+每章 2-4 个 key_events、0-2 个 foreshadowing_seeds。批次末章必须自然承接下一批；如果本批次到达卷末，必须兑现 ending_state 和 must_resolve，并落到 handoff_hook。

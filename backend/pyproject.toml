@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "novel-gen-backend"
+version = "0.1.0"
+description = "AI Novel Generation Backend"
+authors = ["Novel Gen Team"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Web 框架
+fastapi = "^0.115"
+uvicorn = {extras = ["standard"], version = "^0.32"}
+
+# 数据验证
+pydantic = "^2.10"
+pydantic-settings = "^2.7"
+email-validator = "^2.0"
+
+# 数据库
+sqlalchemy = {extras = ["asyncio"], version = "^2.0"}
+asyncpg = "^0.30"
+alembic = "^1.14"
+
+# LLM
+openai = "^1.58"
+anthropic = "^0.40"
+
+# 向量数据库 & 缓存
+redis = "^5.2"
+
+# 工具
+python-dotenv = "^1.0"
+jinja2 = "^3.1"
+httpx = "^0.28"
+tiktoken = "^0.8"
+
+# 安全
+pyjwt = "^2.9"
+python-jose = {extras = ["cryptography"], version = "^3.3"}
+passlib = {extras = ["bcrypt"], version = "^1.7"}
+# bcrypt 4.x 删了 __about__ 属性，passlib 1.7.4 仍依赖该属性，会触发 AttributeError 警告
+# 锁住 3.x 避免兼容性噪声（passlib 1.7.x 最高支持到 bcrypt 4.0.1，但 3.x 是最稳的搭配）
+bcrypt = ">=3.1,<4.0"
+
+# 重试
+tenacity = "^8.5"
+pgvector = "^0.5.0"
+numpy = "^1.26"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^1.4"
+ruff = "^0.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+markers = [
+    "external_llm: paid tests that call the configured external LLM provider",
+    "integration: tests that require the PostgreSQL service",
+]

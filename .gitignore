@@ -1,0 +1,37 @@
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+
+# Runtime and local data
+*.log
+*.db
+*.sqlite
+.task_state.json
+
+# Local diagnostic captures
+backend/_*.txt
+backend/reg_full.txt
+backend/reg.txt
+backend/1.26
+.omc/
+.omx/
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

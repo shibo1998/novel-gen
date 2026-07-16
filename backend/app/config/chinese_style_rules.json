@@ -1,0 +1,169 @@
+{
+    "meta": {
+        "version": "1.0",
+        "description": "中文 AI 小说去味检测规则。Phase 9 核心文件。",
+        "phase": 9
+    },
+    "hard_ban_patterns": {
+        "description": "命中即触发重写（severity=critical），不做自动修复",
+        "rules": [
+            {
+                "id": "JIANZHI_PATTERN",
+                "name": "只见/只听得句式",
+                "pattern": "只见|只听得|只感觉|只觉|只闻",
+                "threshold": 1,
+                "message": "检测到'只X'句式，这是最强 AI 指纹，必须替换为直接描写"
+            },
+            {
+                "id": "EYE_EMOTION",
+                "name": "眼中闪过X模板",
+                "pattern": "眼中闪过|眼中浮现|眼中掠过|眼底浮现|眼底掠过",
+                "threshold": 0,
+                "message": "检测到'眼中闪过X'情绪模板，需替换为具体行为描写"
+            },
+            {
+                "id": "HEART_TREMBLE",
+                "name": "心头一X模板",
+                "pattern": "心头一[颤震紧惊跳沉]|心中一[颤震紧惊跳沉]",
+                "threshold": 0,
+                "message": "检测到'心头一X'情绪模板，需替换为身体反应描写"
+            }
+        ]
+    },
+    "soft_ban_patterns": {
+        "description": "命中超过阈值即警告（severity=major），累计可达临界阈值触发重写",
+        "rules": [
+            {
+                "id": "SURGE_EMOTION",
+                "name": "一股X涌上心头",
+                "pattern": "一股.{0,10}(涌上心头|涌上心[底间]|在心中翻涌|在心底蔓延)",
+                "threshold": 0,
+                "message": "检测到'一股X涌上心头'命名情绪模板"
+            },
+            {
+                "id": "PARADIASTOLE",
+                "name": "不是X而是Y悖论句式",
+                "pattern": "不是.{1,20}而是|与其说.{1,20}不如说",
+                "threshold": 0,
+                "message": "检测到悖论句式，建议直接陈述事实"
+            },
+            {
+                "id": "EM_DASH_OVERUSE",
+                "name": "中文破折号密度",
+                "pattern": "——",
+                "threshold": 1,
+                "unit": "per_1000_chars",
+                "message": "破折号密度超过阈值（每千字 1 处）"
+            },
+            {
+                "id": "CHENGYU_DENSITY",
+                "name": "成语密度",
+                "threshold": 3,
+                "unit": "per_500_chars",
+                "message": "成语密度过高，可能以成语替代具体描写"
+            },
+            {
+                "id": "DIALOGUE_TAG_RATE",
+                "name": "对话标签比例",
+                "threshold": 0.15,
+                "message": "对话标签比例超过 15%"
+            },
+            {
+                "id": "GU_LONG_PATTERN",
+                "name": "古龙体模板",
+                "pattern": "你来了.*我来了.*你不该来|此地不宜久留",
+                "threshold": 0,
+                "message": "检测到古龙体模板对话"
+            },
+            {
+                "id": "CLOSING_ELEVATION",
+                "name": "段落结尾升华倾向",
+                "check": "检查每段最后一句是否为总结性/感悟性语句",
+                "message": "过多段落结尾使用总结升华句式"
+            },
+            {
+                "id": "SENTENCE_VARIANCE",
+                "name": "句式多样性",
+                "check": "句子长度标准差是否 < 5",
+                "message": "句子长度过于均匀，缺乏节奏变化"
+            }
+        ]
+    },
+    "chapter_level_rules": {
+        "description": "整章级别的检测",
+        "rules": [
+            {
+                "id": "CHARACTER_VOICE_DISTINCTION",
+                "name": "角色辨识度",
+                "check": "不同角色的对话句式是否具有可辨识差异（句长、反问频率、是否留半句）",
+                "message": "多个角色对话风格趋同"
+            },
+            {
+                "id": "EXCESSIVELY_SMOOTH",
+                "name": "过于平滑",
+                "check": "本章所有场景是否都有完整收尾、无断裂、无留白",
+                "message": "本章叙事过于平滑，建议触发毛刺注入"
+            }
+        ]
+    },
+    "vocabulary_banlist": {
+        "description": "全局禁用或限制词汇表",
+        "hard_ban": [
+            "只见",
+            "只听得",
+            "只感觉",
+            "只觉",
+            "只闻",
+            "眼中闪过",
+            "眼底闪过",
+            "眼中掠过",
+            "心头一颤",
+            "心头一震",
+            "心头一紧",
+            "心头一惊",
+            "心头一沉",
+            "心中一颤",
+            "心中一震",
+            "心中一紧",
+            "一股暖流涌上心头",
+            "一股不祥的预感",
+            "不是简单的...而是...",
+            "与其说是...不如说是..."
+        ],
+        "soft_ban": [
+            "缓缓",
+            "徐徐",
+            "渐渐",
+            "微微",
+            "愈发",
+            "莫名",
+            "仿佛",
+            "似乎",
+            "不知为何",
+            "一股...的气息",
+            "...扑面而来",
+            "...映入眼帘"
+        ],
+        "cliche_descriptions": [
+            "一袭白衣",
+            "一袭青衫",
+            "一袭长裙",
+            "剑眉星目",
+            "面如冠玉",
+            "云雾缭绕",
+            "鸟语花香",
+            "电光火石之间",
+            "此地不宜久留"
+        ],
+        "overused_chengyu": [
+            "天昏地暗",
+            "日月无光",
+            "风卷残云",
+            "势如破竹",
+            "血流成河",
+            "尸横遍野",
+            "万籁俱寂",
+            "鸦雀无声"
+        ]
+    }
+}

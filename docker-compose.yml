@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+    postgres:
+        image: pgvector/pgvector:pg16
+        container_name: novel-postgres
+        environment:
+            POSTGRES_DB: novel_gen
+            POSTGRES_USER: novel
+            POSTGRES_PASSWORD: ${DB_PASSWORD:-novel123}
+        ports:
+            - '5432:5432'
+        volumes:
+            - pg_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U novel -d novel_gen']
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    redis:
+        image: redis:7-alpine
+        container_name: novel-redis
+        ports:
+            - '6379:6379'
+        volumes:
+            - redis_data:/data
+
+volumes:
+    pg_data:
+    redis_data:

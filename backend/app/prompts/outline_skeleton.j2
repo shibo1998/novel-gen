@@ -1,0 +1,62 @@
+你是一位资深长篇小说结构师。请根据下面的核心创意、世界观与硬约束，
+**只输出全书骨架**（卷结构 + 全局伏笔表），不要写任何具体章节。
+
+## 核心创意
+{{ core_idea }}
+
+## 风格方向
+{{ tone_style }}
+
+## 世界观设定
+{{ setting_document }}
+
+## 世界观硬约束（不可违反）
+{% for c in constraints.hard %}
+- {{ c }}
+{% endfor %}
+
+## 世界观风格约束
+{% for c in constraints.soft %}
+- {{ c }}
+{% endfor %}
+
+## 任务：输出全书骨架 JSON
+只输出一个 JSON 对象，严格遵守下面的 schema，不要包含任何解释文字：
+
+{
+  "volumes": [
+    {
+      "number": 1,
+      "title": "卷名（4-8 字）",
+      "core_conflict": "本卷核心冲突（1-2 句话）",
+      "character_arc_stage": "主角在本卷的弧线阶段（如：觉醒 / 试炼 / 真相 / 抉择 / 升华）",
+      "volume_summary": "本卷一句话剧情概要，章节批次会基于它展开",
+      "opening_state": "本卷开场时主角、核心冲突和关键关系的状态",
+      "ending_state": "本卷末尾必须达成的局面，确保本卷完整收束",
+      "handoff_hook": "连接下一卷的悬念或行动钩子；末卷写全书余韵",
+      "must_resolve": ["本卷内必须解决的问题1", "本卷内必须解决的问题2"]
+    }
+  ],
+  "foreshadowing_registry": [
+    {
+      "name": "伏笔名（短）",
+      "description": "伏笔内容（1 句话）",
+      "sow_chapter_hint": 12,
+      "reap_chapter_hint": 28
+    }
+  ]
+}
+
+## 规模目标（硬约束）
+- 目标总章节数：**{{ target_chapter_count }}** 章
+- 设计 N 卷时，需满足：`N × 每卷章数 ≈ {{ target_chapter_count }}`
+- 默认三卷结构：建立 → 对抗 → 解决；如果目标章数 ≥ 80，推荐 4 卷；如果 ≥ 120，推荐 5 卷
+- 卷数必须在 3-6 之间；每卷应有相似量级（不要某卷只 3 章，某卷 40 章）
+
+## 结构要求
+- 默认三卷结构：建立 → 对抗 → 解决，但**按目标章数缩放**
+- 每卷给一个清晰的"卷名"、"核心冲突"、"弧线阶段"、"一句话概要"
+- 每卷必须给出 opening_state、ending_state、handoff_hook 和 must_resolve，后续章节批次不得改变这些契约
+- 全局伏笔表 10-18 条，**均匀分布**到所有卷，给出大致播种章节提示（sow_chapter_hint），回收章节可空
+- 所有章节号都是建议值，具体编号会在 Pass 2 中按卷内顺序确定
+- 只输出 JSON，可被 Python json.loads 直接解析

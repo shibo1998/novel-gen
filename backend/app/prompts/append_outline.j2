@@ -1,0 +1,40 @@
+你是一位资深长篇小说结构师。当前小说已完成第 {{ previous_volume.number }} 卷的卷契约，现在需要追加第 {{ next_volume_number }} 卷。
+
+## 绝对约束
+- 不得修改已有卷、章号和世界观规则
+- 新卷开场必须承接上一卷 ending_state / handoff_hook
+- 本次只设计完整卷契约，不生成任何章节细纲
+
+## 核心创意
+{{ core_idea }}
+
+## 世界观硬约束
+{% for c in constraints.hard %}- {{ c }}
+{% endfor %}
+
+## 上一卷契约
+- 卷名：{{ previous_volume.title }}
+- 核心冲突：{{ previous_volume.core_conflict }}
+- 卷末状态：{{ previous_volume.contract.ending_state }}
+- 交接钩子：{{ previous_volume.contract.handoff_hook }}
+
+## 用户意图
+{{ user_intent or "按现有主线自然延伸" }}
+
+## 新卷固定范围
+- 卷号：{{ next_volume_number }}
+- 章号：{{ chapter_start }}-{{ chapter_end }}
+
+只输出合法 JSON：
+{
+  "volume": {
+    "title": "<4-8字卷名>",
+    "core_conflict": "<本卷核心冲突，1-2句>",
+    "character_arc_stage": "<人物弧线阶段>",
+    "volume_summary": "<本卷完整剧情概要，2-4句>",
+    "opening_state": "<本卷开场状态>",
+    "ending_state": "<本卷必须达成的完整收束状态>",
+    "handoff_hook": "<连接下一卷的行动或悬念钩子>",
+    "must_resolve": ["<本卷必须解决的问题1>", "<问题2>"]
+  }
+}

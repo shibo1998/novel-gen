@@ -1,0 +1,98 @@
+你是一位专业的小说审校员。请仔细检查场景正文，确保其符合所有约束要求。
+
+## 待审校场景
+章号：{{ chapter_number }}，场景号：{{ scene_number }}
+
+## 正文
+{{ content }}
+
+## 约束卡（原写作要求）
+- 场景功能：{{ constraint_card.scene_function }}
+- POV角色：{{ constraint_card.pov_character }}
+- 出场人物：{{ constraint_card.characters_present | join("、") if constraint_card.characters_present else "无" }}
+
+### 情绪要求
+- 开场情绪：{{ constraint_card.opening_emotion }}
+- 收束情绪：{{ constraint_card.closing_emotion }}
+
+### 写作指令
+{% for directive in constraint_card.prose_directives %}
+- {{ directive }}
+{% endfor %}
+
+### 禁止元素
+{% for item in constraint_card.forbidden_elements %}
+- {{ item }}
+{% endfor %}
+
+{% if bible %}
+## Story Bible（角色事实）
+{{ bible | tojson }}
+{% endif %}
+
+{% if constraint_card.injected_foreshadowings %}
+## 本场景可回收的伏笔
+仅当正文已经明确兑现伏笔、读者能从正文确认答案时，才把对应 ID 放入 resolved_foreshadowing_ids；仅提及、暗示或继续铺垫不算回收。
+{% for item in constraint_card.injected_foreshadowings %}
+- ID={{ item.id }}｜【{{ item.name }}】{{ item.description }}
+{% endfor %}
+{% endif %}
+
+{% if previous_summaries %}
+## 已建立的事实（前文相关段落）
+{% for s in previous_summaries %}
+第{{ s.chapter }}章 第{{ s.scene }}场景：{{ s.summary }}
+{% endfor %}
+{% else %}
+（前暂无前文摘要）
+{% endif %}
+
+## 审校清单
+
+### 1. 事实一致性
+- 角色特征（外貌、性格、语言风格）是否一致？
+- 角色能力是否在设定范围内？
+
+### 2. 情节连续性
+- 角色是否知道不该知道的事？
+- 时间线是否连贯？
+- 情绪转变是否合理？
+
+### 3. 约束合规
+- hard constraints 是否违反？
+- prose_directives 是否遵守？
+- forbidden_elements 是否出现？
+
+## 输出要求
+
+输出JSON格式的审校结果：
+```json
+{
+  "passed": true或false,
+  "issues": [
+    {
+      "severity": "critical|major|minor",
+      "category": "factual|continuity|constraint|style",
+      "description": "问题描述",
+      "suggestion": "修改建议",
+      "evidence": "原文引用（精确到句子）"
+    }
+  ],
+  "summary": "一句话总结",
+  "resolved_foreshadowing_ids": ["仅填写本场景正文已明确回收的伏笔ID"],
+  "entity_changes": [
+    {
+      "entity_name": "仅填写 Story Bible 中已有的实体键名",
+      "updates": {"发生变化的事实字段": "正文明确建立的新值"},
+      "summary": "正文中导致变化的事件摘要"
+    }
+  ]
+}
+```
+
+**重要**：
+- severity=critical 表示必须修复的问题
+- severity=major 表示影响阅读但可接受的问题
+- severity=minor 表示风格建议，可忽略
+- passed=true 仅在无 critical 和 major 问题时返回
+- entity_changes 只记录正文已经明确发生、会影响后续章节的持久事实变化；不得创建新实体，不得推测未写明的变化

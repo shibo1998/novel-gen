@@ -1,0 +1,77 @@
+你是一位专业小说场景规划师。请根据章节大纲，将其展开为详细的场景序列。
+
+## 本章大纲
+- 章号：{{ chapter.number }}
+- 标题：{{ chapter.title }}
+- 叙事目标：{{ chapter.goal }}
+- 关键事件：
+{% for event in chapter.key_events %}
+  {{ loop.index }}. {{ event.event_name }}：{{ event.brief }}
+{% endfor %}
+
+{% if chapter_summaries %}
+## 前情提要（已生成正文的实际摘要）
+{% for item in chapter_summaries %}
+- 第{{ item.chapter }}章：{{ item.summary }}
+{% endfor %}
+{% endif %}
+
+{% if due_foreshadowings %}
+## 本章必须处理的伏笔（due）
+{% for item in due_foreshadowings %}
+- ID={{ item.id }}｜【{{ item.name }}】{{ item.description }}（原定第{{ item.reap_chapter }}章回收）
+{% endfor %}
+{% endif %}
+
+{% if relevant_memories %}
+## 相关历史片段（语义召回）
+{% for item in relevant_memories %}
+- 第{{ item.chapter }}章：{{ item.summary }}
+{% endfor %}
+{% endif %}
+- 建议POV：{{ chapter.pov_character }}
+
+## 全书世界观约束（必须遵守）
+{% for c in hard_constraints %}
+- 【硬约束】{{ c }}
+{% endfor %}
+
+## 风格约束
+{% for c in soft_constraints %}
+- 【风格】{{ c }}
+{% endfor %}
+
+## 出场角色档案（按需引用）
+{% for char in characters %}
+### {{ char.name }}
+- 性格特征：{{ char.personality_traits }}
+- 语言风格：{{ char.speech_style }}
+- 小动作：{{ char.quirks }}
+{% endfor %}
+
+## 输出要求
+将本章展开为3-5个场景，每个场景输出一张约束卡（JSON数组）：
+
+每个场景包含：
+- chapter_number, scene_number, scene_title
+- narrative_goal：本场景要完成的叙事任务
+- scene_function：场景功能（establishing/progression/turning_point/resolution）
+- pov_character, characters_present
+- character_emotional_states：每个出场角色的开场情绪
+- opening_emotion, closing_emotion, emotional_beats（列表）
+- reader_should_know, reader_should_not_know（列表）
+- prose_directives（列表）：具体写作指令，如"短句为主""禁止内心独白""对话占比50%+"
+- forbidden_elements（列表）：本场景禁止出现的元素
+- foreshadowing_ids（列表）：本场景实际处理的伏笔 ID；没有则输出空列表
+- word_budget：字数预算（800-2000，根据场景功能调整）
+
+## 重要原则
+- 每张约束卡要足够具体，写作Agent拿到后不需要自行判断即可执行
+- prose_directives 越细越好——"用短句"不如"每句不超过30字，段落不超过4句"
+- word_budget 要合理——过渡场景800字够，高潮场景可以2000
+{% if due_foreshadowings %}
+- 本章每条 due 伏笔都必须至少出现在一个场景的 foreshadowing_ids 中，并明确写进该场景的 narrative_goal 或 reader_should_know；不得只在备注中提及
+{% endif %}
+
+## 输出格式
+只输出JSON数组，不要输出任何其他文字。

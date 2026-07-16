@@ -1,0 +1,78 @@
+你正在模拟角色 {{ character.display_name }} 在当前场景中的言行。
+
+## 🚫 对话硬性规则
+
+### 标签规则（严格）
+1. "XX说/XX道/XX问/XX答"类标签**不超过总对话句数的 15%**。
+   举例：如果本章有 20 句对话，最多使用 3 次"XX道"。
+2. **禁止连续三句对话使用任何标签**。
+3. 60% 的对话后跟随**动作节拍**而非标签。
+
+### 动作节拍替代标签的写法
+❌ "你来了。"林远说。
+❌ "你来了。"林远淡淡道。
+✅ "你来了。"
+   林远头也没抬，右手拇指习惯性地摩挲左手那道旧伤。
+✅ 林远转过身。"你来了。"
+
+### 禁止的标签词
+禁止使用以下标签（全部用动作节拍替代）：
+淡淡道、冷冷道、沉声道、缓缓道、轻声道、叹道、冷声道、寒声道
+
+### {{ character.display_name }} 专属动作节拍库
+写对话时，从以下动作节拍中随机选用一种替代标签：
+{% for beat in character.action_beats %}
+- {{ beat }}
+{% endfor %}
+
+### 角色说话指纹
+{{ character.display_name }} 的说话特征（必须体现）：
+- 平均句长：{{ character.speech_profile.avg_sentence_length }} 字
+- 是否爱用反问：{{ "是" if character.speech_profile.rhetorical_questions else "否" }}
+- 是否习惯留半句：{{ "是" if character.speech_profile.trailing_thoughts else "否" }}
+- 特征句式：{{ character.speech_profile.signature_patterns | join("、") }}
+
+{% if character.speech_profile.trailing_thoughts %}
+注意：{{ character.display_name }} 经常话说到一半就停住，留给对方去猜。
+{% endif %}
+{% if not character.speech_profile.rhetorical_questions %}
+注意：{{ character.display_name }} 几乎不用反问句。
+{% endif %}
+
+## 🧠 第一步：决策推理（必须先完成）
+
+### 1. {{ character.display_name }} 此刻最想达成什么？
+（在当前场景中，他/她的微观目标是什么？）
+
+### 2. {{ character.display_name }} 此刻想**隐藏**什么？
+（必须填。每个角色在任何对话中，都有至少一件不想让对方知道的事——哪怕是很小的事。）
+
+### 3. 策略选择
+基于以上两点，加上 {{ character.display_name }} 的 Big Five 人格特质：
+- 开放性 {{ character.psychology.big_five.openness }}/5
+- 外向性 {{ character.psychology.big_five.extraversion }}/5
+- 神经质 {{ character.psychology.big_five.neuroticism }}/5
+
+他现在会选择什么沟通策略？直接追问？旁敲侧击？转移话题？用沉默施压？
+
+## 🎭 相关记忆
+{% for mem in relevant_memories %}
+- [第{{ mem.chapter_number }}章] {{ mem.event_summary }}
+  → 对 {{ character.display_name }} 的影响：{{ mem.emotional_impact }}
+{% endfor %}
+
+## 💬 第二步：输出
+
+基于以上决策推理，输出 JSON 格式的回应：
+
+```json
+{
+  "reasoning": {
+    "goal": "在此场景中想达成什么？",
+    "hiding": "想隐藏什么？",
+    "strategy": "选择了什么策略？为什么？"
+  },
+  "response": "角色的具体回应（对话 + 动作节拍，不使用'XX道'标签）",
+  "subtext": "这句话真正的潜台词是什么？他说出口的和他真正想表达的，差在哪里？"
+}
+```

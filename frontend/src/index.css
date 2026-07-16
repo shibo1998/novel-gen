@@ -1,0 +1,248 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────
+   墨韵朱砂 · Ink & Cinnabar
+   暖墨黑底 · 朱砂红强调 · 暖金点缀 · 米白稿纸
+   ───────────────────────────────────────────── */
+
+:root {
+  --ink-950: #141210;
+  --ink-900: #1a1613;
+  --ink-800: #211c18;
+  --ink-700: #2b2520;
+  --ink-600: #3a322b;
+  --cinnabar: #d8452f;
+  --gold: #c9a227;
+
+  font-family: 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color-scheme: dark;
+  color: #e8ddcf;
+  background-color: var(--ink-950);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--ink-950);
+  /* subtle warm grain + top ambient cinnabar glow */
+  background-image:
+    radial-gradient(120% 80% at 80% -10%, rgba(216, 69, 47, 0.10), transparent 55%),
+    radial-gradient(90% 60% at 0% 0%, rgba(201, 162, 39, 0.06), transparent 50%);
+  background-attachment: fixed;
+  color: #e8ddcf;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Fine grain overlay for atmosphere */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Scrollbars in keeping with the ink theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-600) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--ink-600);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-500, #4d433a); background-clip: content-box; }
+
+::selection {
+  background: rgba(216, 69, 47, 0.3);
+  color: #fff;
+}
+
+@layer components {
+  /* ── Surfaces ── */
+  .ink-card {
+    @apply rounded-lg border border-ink-700/70 bg-ink-800/80 backdrop-blur-sm;
+  }
+  .ink-panel {
+    @apply rounded-lg border border-ink-700/60 bg-ink-900/60;
+  }
+
+  /* ── Buttons ── */
+  .icon-button {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-ink-600 bg-ink-800 text-paper-200/70 transition hover:border-cinnabar-500/60 hover:text-cinnabar-300 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .primary-button {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-cinnabar-500 px-4 py-2 text-sm font-medium text-white shadow-seal transition hover:bg-cinnabar-400 active:translate-y-px disabled:cursor-not-allowed disabled:bg-ink-600 disabled:text-paper-300/40 disabled:shadow-none;
+  }
+  .action-button {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-cinnabar-500/40 bg-cinnabar-500/10 px-3 py-2 text-sm font-medium text-cinnabar-300 transition hover:border-cinnabar-500/70 hover:bg-cinnabar-500/20 disabled:cursor-not-allowed disabled:border-ink-600 disabled:bg-ink-800 disabled:text-paper-300/40;
+  }
+  .secondary-button {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-ink-600 bg-ink-800 px-3 py-2 text-sm font-medium text-paper-200/80 transition hover:border-ink-500 hover:bg-ink-700 hover:text-paper-50 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .ghost-button {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-paper-200/60 transition hover:bg-ink-700/60 hover:text-paper-50;
+  }
+
+  /* ── Form fields ── */
+  .field-label {
+    @apply block text-xs font-medium uppercase tracking-wide text-paper-300/50;
+  }
+  .field-input {
+    @apply mt-1 block min-h-9 w-full rounded-md border border-ink-600 bg-ink-950/60 px-3 py-2 text-sm text-paper-50 outline-none transition placeholder:text-paper-300/30 focus:border-cinnabar-500/70 focus:ring-2 focus:ring-cinnabar-500/20;
+  }
+  .field-textarea {
+    @apply block w-full resize-y rounded-md border border-ink-600 bg-ink-950/60 px-3 py-2 text-sm leading-7 text-paper-50 outline-none transition placeholder:text-paper-300/30 focus:border-cinnabar-500/70 focus:ring-2 focus:ring-cinnabar-500/20;
+  }
+
+  /* ── Feedback ── */
+  .alert-error {
+    @apply flex items-start gap-2 rounded-md border-l-2 border-cinnabar-500 bg-cinnabar-700/15 px-3 py-2 text-sm text-cinnabar-300;
+  }
+  .empty-state {
+    @apply rounded-lg border border-dashed border-ink-600 py-12 text-center text-sm text-paper-300/40;
+  }
+
+  /* ── Status chips ── */
+  .status-chip {
+    @apply inline-flex min-h-5 items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+  .status-running, .status-pending, .status-open, .status-pending_review {
+    @apply border-gold-500/40 bg-gold-500/10 text-gold-300;
+  }
+  .status-completed, .status-confirmed, .status-approved, .status-resolved, .status-superseded {
+    @apply border-jade-500/40 bg-jade-500/10 text-jade-400;
+  }
+  .status-failed, .status-error, .status-interrupted, .status-orphaned, .status-rejected {
+    @apply border-cinnabar-500/40 bg-cinnabar-500/10 text-cinnabar-300;
+  }
+
+  /* ── Tables ── */
+  .table-shell {
+    @apply overflow-x-auto rounded-lg border border-ink-700;
+  }
+  .data-table {
+    @apply w-full min-w-[680px] border-collapse text-left text-sm;
+  }
+  .data-table th {
+    @apply border-b border-ink-700 bg-ink-900/50 px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-paper-300/40;
+  }
+  .data-table td {
+    @apply border-b border-ink-700/60 px-3 py-3 align-middle;
+  }
+  .data-table tbody tr {
+    @apply transition hover:bg-ink-700/30;
+  }
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .mono-id {
+    @apply font-mono text-xs text-paper-300/30;
+  }
+
+  /* ── Navigation ── */
+  .workbench-tab {
+    @apply flex min-h-10 shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-paper-200/60 transition hover:bg-ink-700/60 hover:text-paper-50 lg:mb-1 lg:w-full;
+  }
+  .workbench-tab-active {
+    @apply bg-cinnabar-500/[0.12] text-cinnabar-300 shadow-[inset_2px_0_0_theme(colors.cinnabar.500)] hover:bg-cinnabar-500/[0.12] hover:text-cinnabar-300;
+  }
+  .list-nav-item {
+    @apply mb-1 flex min-h-11 w-full flex-col items-start justify-center rounded-md px-3 text-left text-sm text-paper-200/60 transition hover:bg-ink-700/50 hover:text-paper-50;
+  }
+  .list-nav-item-active {
+    @apply bg-ink-700/70 text-paper-50 shadow-[inset_2px_0_0_theme(colors.cinnabar.500)];
+  }
+
+  /* ── Typographic bits ── */
+  .section-label {
+    @apply mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-paper-300/45;
+  }
+  .section-label::before {
+    content: '';
+    @apply inline-block h-3 w-0.5 rounded-full bg-cinnabar-500;
+  }
+  .plain-list {
+    @apply space-y-1.5 text-sm text-paper-200/80;
+  }
+  .plain-list li {
+    @apply border-l border-ink-600 pl-3;
+  }
+  .compact-definition {
+    @apply divide-y divide-ink-700 text-sm;
+  }
+  .compact-definition div {
+    @apply flex justify-between gap-4 py-2;
+  }
+  .compact-definition dt {
+    @apply text-paper-300/40;
+  }
+  .compact-definition dd {
+    @apply text-paper-100;
+  }
+  .result-block {
+    @apply whitespace-pre-wrap rounded-md border border-ink-700 bg-ink-950/70 p-3 font-mono text-xs leading-6 text-paper-200/70;
+  }
+  .timeline {
+    @apply space-y-3 border-l border-ink-600 pl-4;
+  }
+  .timeline li span {
+    @apply text-xs font-medium text-cinnabar-300;
+  }
+  .timeline li p {
+    @apply mt-1 text-sm text-paper-200/60;
+  }
+  .diff-column {
+    @apply min-w-0 border-l border-ink-700 pl-3;
+  }
+  .diff-title {
+    @apply mb-2 text-xs font-semibold;
+  }
+  .diff-line {
+    @apply mb-2 break-words text-xs leading-6 text-paper-200/60;
+  }
+
+  /* ── Reading surface — 稿纸 ── */
+  .manuscript {
+    @apply rounded-lg text-paper-200/90;
+    font-family: theme('fontFamily.serif');
+    font-size: 1.0625rem;
+    line-height: 2;
+    letter-spacing: 0.01em;
+  }
+
+  /* seal-like small caps brand mark */
+  .seal-mark {
+    @apply inline-flex items-center justify-center rounded-md bg-cinnabar-500 font-display text-white shadow-seal;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .stagger > * { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.04s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.08s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.16s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.20s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.24s; }
+}
