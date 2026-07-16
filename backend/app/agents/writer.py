@@ -1,30 +1,18 @@
 """写作Agent —— Phase 9 增强版"""
 import inspect
-import json
 import logging
-from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from app.agents.style_rules import load_style_rules
 from app.llm.client import get_llm_client
 from app.models.constraints import SceneConstraint
 
 logger = logging.getLogger(__name__)
 
 
-def _load_style_rules() -> dict:
-    if not hasattr(_load_style_rules, "_cache"):
-        rules_path = Path(__file__).parent.parent / "config" / "chinese_style_rules.json"
-        try:
-            with open(rules_path, "r", encoding="utf-8") as f:
-                _load_style_rules._cache = json.load(f)
-        except FileNotFoundError:
-            _load_style_rules._cache = {"vocabulary_banlist": {"hard_ban": [], "soft_ban": []}}
-    return _load_style_rules._cache
-
-
 def _build_style_system() -> str:
-    rules = _load_style_rules()
+    rules = load_style_rules()
     vocab = rules.get("vocabulary_banlist", {})
     hard = "、".join(vocab.get("hard_ban", [])[:12])
     soft = "、".join(vocab.get("soft_ban", [])[:12])

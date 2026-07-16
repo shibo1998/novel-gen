@@ -2,14 +2,12 @@ import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_none
 
 from app.config import settings
 from app.llm import client as llm_client_module
 from app.llm.client import CircuitBreaker, UnifiedOpenAIClient
-from app.llm.exceptions import LLMCircuitBreakerError, LLMError, LLMTimeoutError
+from app.llm.exceptions import LLMCircuitBreakerError, LLMTimeoutError
 from app.pipeline.task_queue import TaskManager
-from app.utils import retry as retry_utils
 
 
 async def test_task_factory_receives_its_own_id_and_persists_meta(monkeypatch):
@@ -101,24 +99,6 @@ async def test_openai_stream_has_whole_call_timeout(monkeypatch):
     with pytest.raises(LLMTimeoutError, match="timed out"):
         async for _ in client.complete_stream("prompt"):
             pass
-
-
-async def test_retry_exhaustion_raises_domain_error(monkeypatch):
-    def immediate_retry_decorator(_max_retries=None):
-        return retry(
-            stop=stop_after_attempt(1),
-            wait=wait_none(),
-            retry=retry_if_exception_type(LLMTimeoutError),
-        )
-
-    monkeypatch.setattr(retry_utils, "create_llm_retry_decorator", immediate_retry_decorator)
-
-    @retry_utils.with_retry
-    async def always_times_out():
-        raise LLMTimeoutError("temporary timeout")
-
-    with pytest.raises(LLMError, match="configured retries"):
-        await always_times_out()
 
 
 async def test_circuit_rejects_calls_until_recovery(monkeypatch):

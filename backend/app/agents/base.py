@@ -3,11 +3,11 @@ import json
 import re
 import time
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Callable, Optional
 
 from jinja2 import Environment, FileSystemLoader
 
+from app.agents.style_rules import load_style_rules
 from app.config import settings
 from app.llm.client import get_llm_client
 from app.llm.exceptions import LLMError
@@ -36,21 +36,9 @@ def _bracket_unbalanced(s: str) -> bool:
     return counts["{"] != counts["}"] or counts["["] != counts["]"] or in_string
 
 
-def _load_style_rules() -> dict:
-    """懒加载中文去味规则（单例缓存）"""
-    if not hasattr(_load_style_rules, "_cache"):
-        rules_path = Path(__file__).parent.parent / "config" / "chinese_style_rules.json"
-        try:
-            with open(rules_path, "r", encoding="utf-8") as f:
-                _load_style_rules._cache = json.load(f)
-        except FileNotFoundError:
-            _load_style_rules._cache = {"vocabulary_banlist": {"hard_ban": [], "soft_ban": []}}
-    return _load_style_rules._cache
-
-
 def _build_style_constraint() -> str:
     """从 chinese_style_rules.json 生成全局写作约束片段（注入 System Prompt）"""
-    rules = _load_style_rules()
+    rules = load_style_rules()
     vocab = rules.get("vocabulary_banlist", {})
     hard = "、".join(vocab.get("hard_ban", [])[:12])
     soft = "、".join(vocab.get("soft_ban", [])[:12])

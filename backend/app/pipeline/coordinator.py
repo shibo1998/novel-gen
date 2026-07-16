@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.reviewer import ReviewerAgent
 from app.agents.writer import WriterAgent
 from app.config import settings
+from app.llm.exceptions import LLMError
 from app.models.constraints import RevisionNote, SceneConstraint
 from app.services.budget_guard import BudgetGuard
 from app.services.metrics_collector import LLMCallMetrics, MetricsCollector
@@ -150,13 +151,18 @@ class Coordinator:
             # ── 2. 审校 ────────────────────────────────────
             review_started = time.perf_counter()
             review_result = await self.reviewer.review(content=content, constraint=constraint)
+            review_error = None
+            if review_result.get("status") == "error":
+                message = review_result.get("error") or "Reviewer unavailable"
+                review_error = LLMError(f"Reviewer failed: {message}")
             if collector is not None:
-                review_error = RuntimeError(review_result.get("error")) if review_result.get("status") == "error" else None
                 await self._record_call(
                     collector, "reviewer", project_id, chapter_number, scene_key,
                     content, str(review_result), review_started, 0, "initial",
                     context_snapshot_id, review_error,
                 )
+            if review_error is not None:
+                raise review_error
 
             issues = review_result.get("issues", [])
             critical = [i for i in issues if i.get("severity") == "critical"]

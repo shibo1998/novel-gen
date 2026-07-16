@@ -1,22 +1,13 @@
 """审校Agent —— Phase 9 增强版（中文去味检测）"""
 import json
 import re
-from pathlib import Path
 from typing import Optional
 
 from jinja2 import Environment, FileSystemLoader
 
+from app.agents.style_rules import load_style_rules
 from app.llm.client import collect_stream_text, get_llm_client
 from app.models.constraints import SceneConstraint
-
-
-def _load_style_rules() -> dict:
-    """懒加载去味规则（单例）"""
-    if not hasattr(_load_style_rules, "_cache"):
-        rules_path = Path(__file__).parent.parent / "config" / "chinese_style_rules.json"
-        with open(rules_path, "r", encoding="utf-8") as f:
-            _load_style_rules._cache = json.load(f)
-    return _load_style_rules._cache
 
 
 class ReviewerAgent:
@@ -167,7 +158,7 @@ class ReviewerAgent:
         扫描全文，返回所有命中的 AI 味问题列表。
         每个问题包含：id, name, severity, count, message, locations（上下文片段）
         """
-        rules = _load_style_rules()
+        rules = load_style_rules()
         issues = []
         char_count = max(1, len(content.replace("\n", "").replace(" ", "")))
 
