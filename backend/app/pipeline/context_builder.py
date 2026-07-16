@@ -130,13 +130,19 @@ class ContextBuilder:
                 ContextSlice("memory_retrieval", json.dumps(memories, ensure_ascii=False), "high")
             )
 
-        # active_foreshadowings
+        # Due foreshadowings are critical so context compression cannot discard them.
         fses = await self._get_active_foreshadowings(project_id, constraint.chapter_number)
         import json
-        foreshadow_content = "\n---\n".join(
-            json.dumps(fs, ensure_ascii=False) for fs in fses
+        due_foreshadowings = [fs for fs in fses if fs["is_due"]]
+        active_foreshadowings = [fs for fs in fses if not fs["is_due"]]
+        due_content = "\n---\n".join(
+            json.dumps(fs, ensure_ascii=False) for fs in due_foreshadowings
         )
-        slices.append(ContextSlice("active_foreshadowings", foreshadow_content, "high"))
+        active_content = "\n---\n".join(
+            json.dumps(fs, ensure_ascii=False) for fs in active_foreshadowings
+        )
+        slices.append(ContextSlice("due_foreshadowings", due_content, "critical"))
+        slices.append(ContextSlice("active_foreshadowings", active_content, "high"))
 
         plot_threads = await self._get_active_plot_threads(
             project_id, constraint.chapter_number
@@ -210,7 +216,7 @@ class ContextBuilder:
                     for i, line in enumerate(s.content.split("\n---\n"))
                     if line.strip()
                 ]
-            elif s.category == "active_foreshadowings":
+            elif s.category in ("due_foreshadowings", "active_foreshadowings"):
                 import json
                 parsed_foreshadowings = []
                 for item in s.content.split("\n---\n"):
@@ -220,7 +226,7 @@ class ContextBuilder:
                         parsed_foreshadowings.append(json.loads(item))
                     except json.JSONDecodeError:
                         logger.warning("Dropped truncated foreshadowing context entry")
-                context["injected_foreshadowings"] = parsed_foreshadowings
+                context.setdefault("injected_foreshadowings", []).extend(parsed_foreshadowings)
             elif s.category == "memory_retrieval":
                 import json
                 context["memory_retrieval"] = json.loads(s.content) if s.content else []

@@ -5,6 +5,7 @@ from uuid import uuid4
 from app.agents.chapter import ChapterAgent
 from app.agents.reviewer import ReviewerAgent
 from app.api import writing
+from app.api.chapter import _planning_characters
 from app.models.constraints import SceneConstraint
 from app.pipeline.context_builder import ContextBuilder
 from app.pipeline.coordinator import Coordinator
@@ -142,7 +143,16 @@ def test_chapter_prompt_includes_due_id_history_and_semantic_memory():
         chapter={"number": 20, "title": "真相", "goal": "揭晓", "key_events": [], "pov_character": "林远"},
         hard_constraints=[],
         soft_constraints=[],
-        characters=[],
+        characters=[
+            {
+                "name": "林远",
+                "personality_traits": "克制",
+                "speech_style": "简短",
+                "quirks": "摸左手旧伤",
+                "current_state": {"injury": "healed"},
+            }
+        ],
+        relationships=[{"from": "林远", "to": "师父", "status": "决裂"}],
         chapter_summaries=[{"chapter": 19, "summary": "林远找到旧信"}],
         due_foreshadowings=[{"id": "fs-1", "name": "旧信", "description": "师父遗言", "reap_chapter": 20}],
         relevant_memories=[{"chapter": 5, "summary": "师父藏起信封"}],
@@ -152,6 +162,27 @@ def test_chapter_prompt_includes_due_id_history_and_semantic_memory():
     assert "林远找到旧信" in prompt
     assert "师父藏起信封" in prompt
     assert "foreshadowing_ids" in prompt
+    assert '"injury": "healed"' in prompt
+    assert '"status": "\\u51b3\\u88c2"' in prompt
+
+
+def test_planning_characters_use_previous_chapter_bible_snapshot():
+    character = SimpleNamespace(
+        name="林远",
+        data={"personality_traits": "克制", "injury": "old"},
+    )
+
+    result = _planning_characters(
+        [character],
+        {
+            "characters": {
+                "林远": {"personality_traits": "果断", "injury": "healed"}
+            }
+        },
+    )
+
+    assert result[0]["personality_traits"] == "果断"
+    assert result[0]["current_state"]["injury"] == "healed"
 
 
 async def test_reviewer_filters_hallucinated_resolution_ids():

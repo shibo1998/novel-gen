@@ -47,7 +47,15 @@
 - 性格特征：{{ char.personality_traits }}
 - 语言风格：{{ char.speech_style }}
 - 小动作：{{ char.quirks }}
+- 截至上一章的当前状态：{{ char.current_state | tojson }}
 {% endfor %}
+
+{% if relationships %}
+## 截至上一章的角色关系
+{% for relationship in relationships %}
+- {{ relationship | tojson }}
+{% endfor %}
+{% endif %}
 
 ## 输出要求
 将本章展开为3-5个场景，每个场景输出一张约束卡（JSON数组）：

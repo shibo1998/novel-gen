@@ -13,6 +13,7 @@ from app.db.session import async_session_maker, get_db
 from app.models.domain import Chapter, Entity, Project, Scene
 from app.pipeline.context_builder import ContextBuilder
 from app.pipeline.task_queue import task_manager
+from app.services.bible_version_manager import BibleVersionManager
 from app.services.consistency_checker import check_due_foreshadowing_coverage
 from app.services.foreshadow_scheduler import ForeshadowScheduler
 
@@ -27,6 +28,24 @@ class ExpandChapterRequest(BaseModel):
 class ExpandChapterResponse(BaseModel):
     task_id: str | None
     status: str
+
+
+def _planning_characters(characters: list[Entity], bible_snapshot: dict) -> list[dict]:
+    versioned = bible_snapshot.get("characters", {})
+    result = []
+    for character in characters:
+        fallback = dict(character.data or {})
+        current = dict(versioned.get(character.name) or fallback)
+        result.append(
+            {
+                "name": character.name,
+                "personality_traits": current.get("personality_traits", ""),
+                "speech_style": current.get("speech_style", ""),
+                "quirks": current.get("quirks", ""),
+                "current_state": current,
+            }
+        )
+    return result
 
 
 @router.post("/{project_id}/chapters/{chapter_id}/expand", response_model=ExpandChapterResponse)
@@ -85,15 +104,11 @@ async def expand_chapter(
                 select(Entity).where(Entity.project_id == project_uuid, Entity.type == "character")
             )
             characters = char_result.scalars().all()
-            char_list = [
-                {
-                    "name": char.name,
-                    "personality_traits": char.data.get("personality_traits", ""),
-                    "speech_style": char.data.get("speech_style", ""),
-                    "quirks": char.data.get("quirks", ""),
-                }
-                for char in characters
-            ] if characters else []
+            chapter_number = expansion_payload["chapter"]["number"]
+            bible_snapshot = await BibleVersionManager(session).get_snapshot(
+                str(project_uuid), max(0, chapter_number - 1)
+            )
+            char_list = _planning_characters(characters, bible_snapshot)
 
             project_data = expansion_payload["project_data"]
             hard_constraints = project_data.get("constraints", {}).get("hard", [])
@@ -134,6 +149,7 @@ async def expand_chapter(
                 "due_foreshadowings": schedule["due"],
                 "chapter_summaries": planning_context["chapter_summaries"],
                 "relevant_memories": planning_context["relevant_memories"],
+                "relationships": bible_snapshot.get("relationships", []),
             })
 
             scenes = result if isinstance(result, list) else [result]
