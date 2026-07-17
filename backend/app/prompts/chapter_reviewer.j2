@@ -1,0 +1,53 @@
+你正在审校第 {{ chapter_number }} 章的完整正文。HTML 场景标记只用于定位，不属于正文。
+
+## 完整正文
+{{ content }}
+
+## 有序场景合同
+{% for scene in constraints %}
+### 场景 {{ scene.scene_number }}：{{ scene.scene_title }}
+- 核心推进：{{ scene.narrative_goal }}
+- POV：{{ scene.pov_character }}
+- 在场人物：{{ scene.characters_present | join("、") }}
+- 必须建立：{{ scene.reader_should_know | join("、") if scene.reader_should_know else scene.narrative_goal }}
+{% if scene.reader_should_not_know %}- 暂时不能揭示：{{ scene.reader_should_not_know | join("、") }}
+{% endif %}- 收束状态：{{ scene.closing_emotion }}
+{% endfor %}
+
+## 已冻结事实
+角色与实体：{{ context.bible | tojson }}
+前情：{{ context.previous | tojson }}
+世界观：{{ context.world_rules | tojson }}
+伏笔：{{ context.foreshadowings | tojson }}
+
+## 审校重点
+1. 每个场景目标是否实际发生，前一场结果是否成为后一场条件。
+2. POV、人物知识、物件位置、时间顺序和设定是否连续。
+3. 是否存在重复开场、重复交代同一压力、每场都独立收束或强行制造小钩子。
+4. 人物说话和贴身叙述是否保持同一口感，节奏是否有真实松紧变化。
+5. 只记录有原文证据的 critical/major 问题；minor 只用于诊断，不阻断。
+
+输出严格 JSON，不要代码块：
+{
+  "passed": true,
+  "issues": [
+    {
+      "severity": "critical|major|minor",
+      "category": "factual|continuity|constraint|style",
+      "description": "问题描述",
+      "suggestion": "定向修改建议",
+      "evidence": "正文证据"
+    }
+  ],
+  "style_review": {
+    "dialogue_density": {"score": 1, "evidence": "证据"},
+    "pacing": {"score": 1, "evidence": "证据"},
+    "colloquialism": {"score": 1, "evidence": "证据"}
+  },
+  "resolved_foreshadowing_ids": [],
+  "entity_changes": [
+    {"entity_name": "冻结实体名", "updates": {"字段": "新值"}, "summary": "变化原因"}
+  ]
+}
+
+`passed=true` 仅在没有 critical 和 major 问题时使用。伏笔和实体变化只能填写正文已明确建立且存在于冻结事实中的项目。

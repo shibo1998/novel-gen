@@ -46,6 +46,76 @@ async def test_write_chapter_resolves_number_through_chapter_id(monkeypatch):
     assert db.execute.await_count == 2
 
 
+async def test_apply_whole_chapter_result_persists_one_atomic_version(monkeypatch):
+    project_id = uuid4()
+    chapter_id = uuid4()
+    snapshot_id = uuid4()
+    scenes = [
+        SimpleNamespace(id=uuid4(), scene_number=1),
+        SimpleNamespace(id=uuid4(), scene_number=2),
+    ]
+    constraint_context = {
+        "injected_bible": {},
+        "injected_previous": None,
+        "injected_foreshadowings": None,
+        "injected_memories": None,
+        "injected_plot_threads": None,
+        "injected_chapter_summaries": None,
+        "injected_world_rules": None,
+        "injected_style": None,
+    }
+    constraints = [SimpleNamespace(**constraint_context), SimpleNamespace(**constraint_context)]
+    flow_result = {
+        "segments": {1: "第一场。", 2: "第二场。"},
+        "content": "第一场。\n\n第二场。",
+        "passed": True,
+        "issues": [],
+        "revision_count": 0,
+        "style_review": {},
+        "resolved_foreshadowing_ids": [],
+        "entity_changes": [],
+    }
+    durable = SimpleNamespace(id=uuid4())
+    version = SimpleNamespace(id=uuid4())
+    create = AsyncMock(return_value=version)
+    evaluate = AsyncMock(return_value=None)
+    monkeypatch.setattr(writing.ChapterContentVersionService, "create", create)
+    monkeypatch.setattr(
+        writing.QualityWorkflow,
+        "evaluate_if_chapter_complete",
+        evaluate,
+    )
+    monkeypatch.setattr(
+        writing,
+        "_resolve_reviewed_foreshadowings",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        writing,
+        "apply_reviewed_bible_changes",
+        AsyncMock(return_value=[]),
+    )
+
+    review_result, created_version = await writing._apply_whole_chapter_result(
+        AsyncMock(),
+        project_id=project_id,
+        chapter_id=chapter_id,
+        chapter_number=1,
+        scenes=scenes,
+        constraints=constraints,
+        flow_result=flow_result,
+        durable_task=durable,
+        context_snapshot_id=snapshot_id,
+    )
+
+    assert [scene.content for scene in scenes] == ["第一场。", "第二场。"]
+    assert [scene.status for scene in scenes] == ["confirmed", "confirmed"]
+    create.assert_awaited_once()
+    evaluate.assert_awaited_once_with(chapter_id, version)
+    assert review_result["passed"] is True
+    assert created_version is version
+
+
 def test_chapter_idempotency_key_is_stable_and_fits_database_column():
     project_id = uuid4()
     snapshots = [uuid4() for _ in range(8)]

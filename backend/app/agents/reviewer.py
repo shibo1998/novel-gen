@@ -3,6 +3,12 @@ import json
 import re
 from typing import Optional
 
+from app.agents.chapter_writer import (
+    chapter_budget_range,
+    count_chapter_characters,
+    merge_chapter_context,
+    split_chapter_draft,
+)
 from app.agents.style_rules import load_style_rules
 from app.agents.template_environment import create_template_environment
 from app.llm.client import collect_stream_text, get_llm_client
@@ -82,6 +88,60 @@ class ReviewerAgent:
             "style_review": style_review,
             "resolved_foreshadowing_ids": resolved_foreshadowing_ids,
             "entity_changes": entity_changes,
+        }
+
+    async def review_chapter(
+        self,
+        content: str,
+        constraints: list[SceneConstraint],
+        target_chars: int,
+    ) -> dict:
+        """Review one complete chapter against all ordered scene contracts."""
+        if not constraints:
+            raise ValueError("chapter review requires at least one scene constraint")
+
+        ai_smell_issues = self._detect_ai_patterns(content)
+        constraint_issues = self._detect_chapter_constraint_issues(
+            content, constraints, target_chars
+        )
+        base_result = await self._base_chapter_review(content, constraints)
+        if base_result.get("status") == "error":
+            return {
+                "status": "error",
+                "issues": ai_smell_issues + constraint_issues,
+                "error": base_result.get("error", "Reviewer unavailable"),
+                "style_review": {},
+                "resolved_foreshadowing_ids": [],
+                "entity_changes": [],
+            }
+
+        style_review = self._validated_style_review(base_result.get("style_review"))
+        base_issues = base_result.get("issues", [])
+        if not isinstance(base_issues, list):
+            base_issues = []
+        all_issues = base_issues + ai_smell_issues + constraint_issues
+        critical = [item for item in all_issues if item.get("severity") == "critical"]
+        major = [item for item in all_issues if item.get("severity") == "major"]
+        if critical or major:
+            return {
+                "status": "needs_rewrite",
+                "issues": all_issues,
+                "rewrite_hints": self._build_rewrite_hints(critical + major),
+                "style_review": style_review,
+                "resolved_foreshadowing_ids": [],
+                "entity_changes": [],
+            }
+
+        return {
+            "status": "pass",
+            "issues": all_issues,
+            "style_review": style_review,
+            "resolved_foreshadowing_ids": self._validated_chapter_resolution_ids(
+                base_result, constraints
+            ),
+            "entity_changes": self._validated_chapter_entity_changes(
+                base_result, constraints
+            ),
         }
 
     @classmethod
@@ -177,6 +237,129 @@ class ReviewerAgent:
             return self._parse_json(raw)
         except Exception as exc:
             return {"status": "error", "issues": [], "error": str(exc)}
+
+    async def _base_chapter_review(
+        self,
+        content: str,
+        constraints: list[SceneConstraint],
+    ) -> dict:
+        template = self.jinja.get_template("chapter_reviewer.j2")
+        prompt = template.render(
+            content=content,
+            chapter_number=constraints[0].chapter_number,
+            constraints=constraints,
+            context=merge_chapter_context(constraints),
+        )
+        system = (
+            "你是长篇网文的整章审校员。只报告会破坏剧情、连续性、人物口感或阅读节奏的问题。"
+        )
+        try:
+            raw = await collect_stream_text(self.llm, prompt, system=system)
+            return self._parse_json(raw)
+        except Exception as exc:
+            return {"status": "error", "issues": [], "error": str(exc)}
+
+    def _detect_chapter_constraint_issues(
+        self,
+        content: str,
+        constraints: list[SceneConstraint],
+        target_chars: int,
+    ) -> list[dict]:
+        issues: list[dict] = []
+        expected = [constraint.scene_number for constraint in constraints]
+        try:
+            split_chapter_draft(content, expected)
+        except ValueError as exc:
+            description = f"整章场景边界无效：{exc}"
+            issues.append({
+                "id": "CHAPTER_SCENE_MARKERS",
+                "name": "整章场景边界",
+                "severity": "critical",
+                "category": "constraint",
+                "description": description,
+                "message": description,
+                "suggestion": "按计划顺序补齐唯一的场景边界标记，并确保每段都有正文。",
+            })
+
+        actual = count_chapter_characters(content)
+        minimum, maximum = chapter_budget_range(target_chars)
+        if not minimum <= actual <= maximum:
+            description = (
+                f"整章正文约 {actual} 字，目标 {target_chars} 字，"
+                f"可接受范围 {minimum}-{maximum} 字。"
+            )
+            issues.append({
+                "id": "CHAPTER_WORD_BUDGET",
+                "name": "整章字数预算",
+                "severity": "critical",
+                "category": "constraint",
+                "count": actual,
+                "description": description,
+                "message": description,
+                "suggestion": (
+                    "在保留全部场景结果和转折的前提下，调整重复交代、动作密度或薄弱节点。"
+                ),
+            })
+        return issues
+
+    @staticmethod
+    def _validated_chapter_resolution_ids(
+        result: dict,
+        constraints: list[SceneConstraint],
+    ) -> list[str]:
+        allowed = {
+            str(item.get("id"))
+            for constraint in constraints
+            for item in (constraint.injected_foreshadowings or [])
+            if item.get("id")
+        }
+        requested = result.get("resolved_foreshadowing_ids", [])
+        if not isinstance(requested, list):
+            return []
+        return list(dict.fromkeys(str(item) for item in requested if str(item) in allowed))
+
+    @staticmethod
+    def _validated_chapter_entity_changes(
+        result: dict,
+        constraints: list[SceneConstraint],
+    ) -> list[dict]:
+        allowed = {
+            name
+            for constraint in constraints
+            for name in (constraint.injected_bible or {}).keys()
+        }
+        requested = result.get("entity_changes", [])
+        if not isinstance(requested, list):
+            return []
+        validated: list[dict] = []
+        seen: set[str] = set()
+        for item in requested[:20]:
+            if not isinstance(item, dict):
+                continue
+            entity_name = item.get("entity_name")
+            updates = item.get("updates")
+            if (
+                not isinstance(entity_name, str)
+                or entity_name not in allowed
+                or entity_name in seen
+                or not isinstance(updates, dict)
+                or not updates
+            ):
+                continue
+            clean_updates = {
+                key: value
+                for key, value in updates.items()
+                if isinstance(key, str) and key and not key.startswith("__")
+            }
+            if not clean_updates:
+                continue
+            validated.append({
+                "entity_name": entity_name,
+                "updates": clean_updates,
+                "summary": str(item.get("summary") or "正文事件更新")[:500],
+            })
+            seen.add(entity_name)
+        return validated
 
     def _detect_ai_patterns(self, content: str) -> list[dict]:
         """

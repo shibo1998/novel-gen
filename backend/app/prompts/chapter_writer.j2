@@ -1,0 +1,66 @@
+## 整章委托
+本次一次写完第{{ chapter_number }}章{% if chapter_title %}「{{ chapter_title }}」{% endif %}。
+正文目标 {{ target_chars }} 字，可接受范围 {{ minimum_chars }}-{{ maximum_chars }} 字。这个范围针对整章，不给单个场景分配字数。
+
+## 这一章的故事
+以下场景按顺序连续发生。场景合同只规定剧情结果和事实边界，正文要自然承接，不把合同字段复述给读者。
+
+{% for scene in constraints %}
+### 场景 {{ scene.scene_number }}：{{ scene.scene_title }}
+- 核心推进：{{ scene.narrative_goal }}
+- 场景作用：{{ scene.scene_function }}
+- POV：{{ scene.pov_character }}
+- 在场人物：{{ scene.characters_present | join("、") }}
+- 发生顺序参考：{{ scene.emotional_beats | join(" → ") if scene.emotional_beats else scene.narrative_goal }}
+- 人物状态：{{ scene.character_emotional_states | tojson }}
+- 情绪走向：{{ scene.opening_emotion }} → {{ scene.closing_emotion }}
+- 读者在场景结束时确认：{{ scene.reader_should_know | join("、") if scene.reader_should_know else scene.narrative_goal }}
+{% if scene.reader_should_not_know %}- 暂时保留：{{ scene.reader_should_not_know | join("、") }}
+{% endif %}{% if scene.prose_directives %}- 本场特有提醒：{{ scene.prose_directives | join("；") }}
+{% endif %}{% if scene.forbidden_elements %}- 故事边界：{{ scene.forbidden_elements | join("；") }}
+{% endif %}
+{% endfor %}
+
+## 已建立的事实
+{% if context.bible %}### 角色与实体
+{{ context.bible | tojson }}
+{% endif %}{% if context.previous %}### 前情
+{% for item in context.previous %}- 第{{ item.chapter }}章第{{ item.scene }}场景：{{ item.summary }}
+{% endfor %}{% endif %}{% if context.chapter_summaries %}### 章节摘要
+{% for item in context.chapter_summaries %}{{ item }}
+{% endfor %}{% endif %}{% if context.world_rules %}### 世界观规则
+{% for item in context.world_rules %}{{ item }}
+{% endfor %}{% endif %}{% if context.memories %}### 相关记忆
+{% for item in context.memories %}- {{ item | tojson }}
+{% endfor %}{% endif %}{% if context.plot_threads %}### 活跃情节线
+{% for item in context.plot_threads %}- {{ item | tojson }}
+{% endfor %}{% endif %}{% if context.foreshadowings %}### 相关伏笔
+{% for item in context.foreshadowings %}- {{ item | tojson }}
+{% endfor %}{% endif %}{% if context.styles %}### 项目文风
+{% for item in context.styles %}{{ item | tojson }}
+{% endfor %}{% endif %}
+
+## 行文方式
+把整章当作一个连续叙事单元。前一场造成的动作、物件位置、认知和情绪直接成为后一场的起点；不重新介绍人物，不重复交代同一压力，也不让每个场景都拥有独立开场和总结。句段长度跟随场面松紧变化，人物的注意力和说话方式保持连续。
+
+{% if previous_content %}
+## 本轮定向修订
+下面是上一稿全文：
+
+<previous-draft>
+{{ previous_content }}
+</previous-draft>
+
+只处理以下已定位问题，保留已经成立的剧情、人物选择、场景顺序和有效表达：
+{% for issue in issues %}- 【{{ issue.get("severity", "major") | upper }}】{{ issue.get("description") or issue.get("message") or issue.get("name") }}{% if issue.get("suggestion") %}；建议：{{ issue.get("suggestion") }}{% endif %}
+{% endfor %}
+修订后重新输出完整章节。
+{% endif %}
+
+## 输出合同
+第一行输出：# 第{{ chapter_number }}章{% if chapter_title %} {{ chapter_title }}{% endif %}
+
+写到每个场景的正文之前，先单独插入对应标记：
+{% for scene in constraints %}- 场景 {{ scene.scene_number }} 使用 `<!-- SCENE:{{ scene.scene_number }} -->`
+{% endfor %}
+每个标记必须且只能出现一次，不能把全部标记集中在章首。标记只用于保存定位，不是场景标题。标记后直接接连续正文，不输出解释、JSON、写作分析或额外小标题。

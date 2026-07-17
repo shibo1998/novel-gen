@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.chapter_writer import merge_chapter_context
 from app.agents.reviewer import ReviewerAgent
 from app.agents.writer import WriterAgent
 from app.core.security import get_current_user
@@ -26,7 +27,7 @@ from app.services.chapter_content_versions import ChapterContentVersionService
 from app.services.context_snapshot_store import ContextSnapshotStore
 from app.services.generation_task_store import GenerationTaskStore
 from app.services.llm_observability import LLMCallObserver
-from app.services.prose_compliance import apply_scene_compliance
+from app.services.prose_compliance import apply_chapter_compliance, apply_scene_compliance
 from app.services.quality_workflow import QualityWorkflow
 from app.services.reviewed_bible_changes import apply_reviewed_bible_changes
 from app.services.word_budget import scene_word_budget_values
@@ -156,6 +157,67 @@ async def _resolve_reviewed_foreshadowings(
             str(project_id), str(row.id), chapter_number
         )
     return [str(row.id) for row in rows]
+
+
+async def _apply_whole_chapter_result(
+    db: AsyncSession,
+    *,
+    project_id: UUID,
+    chapter_id: UUID,
+    chapter_number: int,
+    scenes: list[Scene],
+    constraints: list[SceneConstraint],
+    flow_result: dict,
+    durable_task: GenerationTask,
+    context_snapshot_id: UUID,
+) -> tuple[dict, object]:
+    """Persist one parsed chapter result without intermediate scene versions."""
+    segments = flow_result["segments"]
+    for scene in scenes:
+        content = segments[scene.scene_number]
+        scene.content = content
+        scene.word_count = len(content)
+
+    review_result = apply_chapter_compliance(
+        scenes,
+        flow_result["content"],
+        review_passed=flow_result["passed"],
+        review_result={
+            "passed": flow_result["passed"],
+            "issues": flow_result["issues"],
+            "revision_count": flow_result["revision_count"],
+            "style_review": flow_result.get("style_review", {}),
+        },
+    )
+    effective_passed = review_result["passed"]
+    content_version = await ChapterContentVersionService(db).create(
+        chapter_id=chapter_id,
+        source="ai",
+        context_snapshot_id=context_snapshot_id,
+        generation_task_id=durable_task.id,
+        change_summary="Atomic whole-chapter generation",
+    )
+    await QualityWorkflow(db).evaluate_if_chapter_complete(chapter_id, content_version)
+
+    if effective_passed:
+        await _resolve_reviewed_foreshadowings(
+            db,
+            project_id,
+            chapter_number,
+            flow_result.get("resolved_foreshadowing_ids", []),
+        )
+        review_result["bible_version_ids"] = await apply_reviewed_bible_changes(
+            db,
+            project_id=project_id,
+            chapter_number=chapter_number,
+            scene_id=scenes[0].id,
+            injected_bible=merge_chapter_context(constraints)["bible"],
+            requested_changes=flow_result.get("entity_changes", []),
+        )
+        for scene in scenes:
+            scene.review_result = dict(review_result)
+
+    return review_result, content_version
 
 
 # ═══════════════════════════════════════════════════════════
@@ -509,7 +571,7 @@ async def write_scene_auto(
 
 
 # ═══════════════════════════════════════════════════════════
-#  POST /{scene_id}/write-chapter  — 整章生成（所有场景串行）
+#  POST /{scene_id}/write-chapter  — 整章单次生成
 # ═══════════════════════════════════════════════════════════
 @router.post("/{scene_id}/write-chapter")
 async def write_chapter_auto(
@@ -518,8 +580,7 @@ async def write_chapter_auto(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    整章自动写作：对该场景所属章节的所有场景依次执行 write-auto。
-    用户触发一次，章节内所有场景依次完成。
+    整章自动写作：一次读取全部场景合同，生成、审校并原子保存完整章节。
     """
     scene = await _get_owned_scene(db, scene_id, current_user_id)
 
@@ -534,7 +595,9 @@ async def write_chapter_auto(
     ).scalar_one_or_none()
     if chapter is None:
         raise HTTPException(status_code=404, detail="Chapter not found")
+    chapter_id = chapter.id
     chapter_num = chapter.chapter_number
+    chapter_title = getattr(chapter, "title", None) or ""
 
     all_scenes_result = await db.execute(
         select(Scene)
@@ -544,11 +607,12 @@ async def write_chapter_auto(
     scenes = list(all_scenes_result.scalars().all())
     _assign_chapter_word_budgets(scenes)
 
+    if scenes and all(item.status in ("completed", "confirmed") for item in scenes):
+        return {"task_id": None, "status": "completed", "scene_count": 0}
+
     jobs = []
     snapshot_store = ContextSnapshotStore(db)
     for item in scenes:
-        if item.status in ("completed", "confirmed"):
-            continue
         raw_constraint = SceneConstraint(**(item.constraint_card or {}))
         frozen_constraint, context, allocation = await _build_writing_context(
             db, project_id, raw_constraint
@@ -606,7 +670,6 @@ async def write_chapter_auto(
     await db.commit()
 
     async def run(parent_task_id: str):
-        results = []
         async with async_session_maker() as task_db:
             store = GenerationTaskStore(task_db)
             durable = await store.start(
@@ -618,105 +681,72 @@ async def write_chapter_auto(
                 idempotency_key=chapter_idempotency_key,
             )
             await task_db.commit()
-            for attempt_number, job in enumerate(jobs, 1):
-                sid = job["scene_id"]
-                s_result = await task_db.execute(select(Scene).where(Scene.id == sid))
-                s_scene = s_result.scalar_one_or_none()
-                if not s_scene or s_scene.status in ("completed", "confirmed"):
-                    continue
-
-                constraint = job["constraint"]
-                try:
-                    flow_result = await coordinator.run_writing_flow(
-                        constraint=constraint,
-                        project_id=str(project_id),
-                        chapter_number=chapter_num,
-                        db=task_db,
-                        context_snapshot_id=str(job["snapshot_id"]),
-                    )
-                    s_scene.content = flow_result["content"]
-                    s_scene.word_count = len(flow_result["content"])
-                    review_result = apply_scene_compliance(
-                        s_scene,
-                        flow_result["content"],
-                        review_passed=flow_result["passed"],
-                        review_result={
-                        "passed": flow_result["passed"],
-                        "issues": flow_result["issues"],
-                        "revision_count": flow_result["revision_count"],
-                        "style_review": flow_result.get("style_review", {}),
-                        },
-                    )
-                    effective_passed = review_result["passed"]
-                    content_version = await ChapterContentVersionService(task_db).create(
-                        chapter_id=s_scene.chapter_id,
-                        source="ai",
-                        context_snapshot_id=job["snapshot_id"],
-                        generation_task_id=durable.id,
-                        change_summary="Automatic chapter generation",
-                    )
-                    await QualityWorkflow(task_db).evaluate_if_chapter_complete(
-                        s_scene.chapter_id, content_version
-                    )
-                    if effective_passed:
-                        await _resolve_reviewed_foreshadowings(
-                            task_db,
-                            project_id,
-                            constraint.chapter_number,
-                            flow_result.get("resolved_foreshadowing_ids", []),
-                        )
-                        review_result["bible_version_ids"] = await apply_reviewed_bible_changes(
-                            task_db,
-                            project_id=project_id,
-                            chapter_number=constraint.chapter_number,
-                            scene_id=sid,
-                            injected_bible=constraint.injected_bible,
-                            requested_changes=flow_result.get("entity_changes", []),
-                        )
-                    await store.save_attempt(
-                        durable,
-                        flow_result["content"],
-                        status="completed" if effective_passed else "needs_review",
-                        call_type="initial",
-                        attempt_number=attempt_number,
-                        scene_id=sid,
-                        context_snapshot_id=job["snapshot_id"],
-                    )
-                    await task_db.commit()
-                    results.append({
-                        "scene_id": str(sid),
-                        "word_count": len(flow_result["content"]),
-                        "passed": effective_passed,
-                        "revisions": flow_result["revision_count"],
-                        "style_review": flow_result.get("style_review", {}),
-                    })
-                except Exception as e:
-                    logger.exception("write-chapter failed for scene %s", sid)
-                    await task_db.rollback()
-                    results.append({
-                        "scene_id": str(sid),
-                        "error": PUBLIC_TASK_ERROR,
-                        "error_code": TASK_EXECUTION_FAILED,
-                    })
-                    durable = (
+            try:
+                constraints = [job["constraint"] for job in jobs]
+                flow_result = await coordinator.run_chapter_writing_flow(
+                    chapter_title=chapter_title,
+                    constraints=constraints,
+                    project_id=str(project_id),
+                    chapter_number=chapter_num,
+                    db=task_db,
+                    context_snapshot_id=str(jobs[0]["snapshot_id"]),
+                )
+                scene_rows = list(
+                    (
                         await task_db.execute(
-                            select(GenerationTask).where(GenerationTask.task_id == parent_task_id)
+                            select(Scene)
+                            .where(Scene.chapter_id == chapter_id)
+                            .order_by(Scene.scene_number)
                         )
-                    ).scalar_one()
-                    await store.fail(durable, e)
-                    await task_db.commit()
-                    raise
-
-            await store.complete(durable)
-            await task_db.commit()
-        return results
+                    ).scalars().all()
+                )
+                review_result, _ = await _apply_whole_chapter_result(
+                    task_db,
+                    project_id=project_id,
+                    chapter_id=chapter_id,
+                    chapter_number=chapter_num,
+                    scenes=scene_rows,
+                    constraints=constraints,
+                    flow_result=flow_result,
+                    durable_task=durable,
+                    context_snapshot_id=jobs[0]["snapshot_id"],
+                )
+                await store.save_attempt(
+                    durable,
+                    flow_result["content"],
+                    status="completed" if review_result["passed"] else "needs_review",
+                    call_type="initial",
+                    attempt_number=flow_result["attempts"],
+                    scene_id=scene_rows[0].id,
+                    context_snapshot_id=jobs[0]["snapshot_id"],
+                )
+                await store.complete(durable)
+                await task_db.commit()
+                return {
+                    "chapter_id": str(chapter_id),
+                    "word_count": len(flow_result["content"]),
+                    "passed": review_result["passed"],
+                    "revisions": flow_result["revision_count"],
+                    "scene_count": len(scene_rows),
+                }
+            except Exception as e:
+                logger.exception("write-chapter failed for chapter %s", chapter_id)
+                await task_db.rollback()
+                durable = (
+                    await task_db.execute(
+                        select(GenerationTask).where(GenerationTask.task_id == parent_task_id)
+                    )
+                ).scalar_one()
+                await store.fail(durable, e)
+                await task_db.commit()
+                raise
 
     task_id = task_manager.create_task(
         coroutine_factory=run,
         task_id=reserved_chapter_task_id,
         meta={"project_id": str(project_id), "chapter": chapter_num, "phase": "write-chapter"},
     )
-    return {"task_id": task_id, "status": "pending", "scene_count": len(jobs)}
+    return {"task_id": task_id, "status": "pending", "scene_count": len(scenes)}
 
 
 # ═══════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from app.services.prose_compliance import apply_scene_compliance
+from app.services.prose_compliance import apply_chapter_compliance, apply_scene_compliance
 
 
 def test_clean_reviewed_prose_is_confirmed():
@@ -26,3 +26,19 @@ def test_manual_save_without_review_stays_draft():
     result = apply_scene_compliance(scene, "这是干净的正文。", review_passed=False)
     assert scene.status == "draft"
     assert result["compliance"]["passed"] is True
+
+
+def test_apply_chapter_compliance_uses_one_verdict_for_all_scenes():
+    scenes = [SimpleNamespace(), SimpleNamespace()]
+
+    result = apply_chapter_compliance(
+        scenes,
+        "这是干净的整章正文。",
+        review_passed=True,
+        review_result={"issues": []},
+    )
+
+    assert result["passed"] is True
+    assert result["scope"] == "chapter"
+    assert [scene.status for scene in scenes] == ["confirmed", "confirmed"]
+    assert all(scene.review_result["scope"] == "chapter" for scene in scenes)

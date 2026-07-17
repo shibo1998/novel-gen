@@ -147,3 +147,50 @@ def test_reviewer_detects_cross_sentence_negative_redefinition():
     )
 
     assert "PARADIASTOLE" in {issue["id"] for issue in issues}
+
+
+def test_chapter_reviewer_detects_marker_and_total_budget_failures():
+    constraint = _constraint()
+    constraint.scene_number = 1
+    issues = ReviewerAgent()._detect_chapter_constraint_issues(
+        "<!-- SCENE:2 -->\n太短。", [constraint], 2500
+    )
+
+    assert {issue["id"] for issue in issues} == {
+        "CHAPTER_SCENE_MARKERS",
+        "CHAPTER_WORD_BUDGET",
+    }
+
+
+def test_chapter_reviewer_accepts_valid_markers_and_total_budget():
+    constraint = _constraint()
+    constraint.scene_number = 1
+    content = "<!-- SCENE:1 -->\n" + "甲" * 2300
+
+    assert ReviewerAgent()._detect_chapter_constraint_issues(
+        content, [constraint], 2500
+    ) == []
+
+
+async def test_chapter_reviewer_does_not_pass_a_single_major_issue():
+    reviewer = ReviewerAgent()
+    reviewer._base_chapter_review = AsyncMock(return_value={
+        "status": "needs_rewrite",
+        "issues": [{
+            "severity": "major",
+            "category": "continuity",
+            "description": "后一场重新介绍了刚刚出场的人物。",
+        }],
+        "style_review": {},
+    })
+    reviewer._detect_ai_patterns = lambda _content: []
+    constraint = _constraint()
+    constraint.scene_number = 1
+
+    result = await reviewer.review_chapter(
+        "<!-- SCENE:1 -->\n" + "甲" * 2300,
+        [constraint],
+        2500,
+    )
+
+    assert result["status"] == "needs_rewrite"

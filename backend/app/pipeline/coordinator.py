@@ -6,14 +6,17 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.chapter_writer import ChapterWriterAgent, split_chapter_draft
 from app.agents.reviewer import ReviewerAgent
 from app.agents.writer import WriterAgent
 from app.config import settings
 from app.llm.exceptions import LLMError
 from app.models.constraints import RevisionNote, SceneConstraint
 from app.services.budget_guard import BudgetGuard
+from app.services.llm_observability import LLMCallObserver
 from app.services.metrics_collector import LLMCallMetrics, MetricsCollector
 from app.services.pricing import estimate_cost
+from app.services.word_budget import CHAPTER_WORD_BUDGET
 from app.utils.tokens import count_tokens, count_tokens_pair
 
 logger = logging.getLogger(__name__)
@@ -31,9 +34,11 @@ class Coordinator:
     """
 
     MAX_REVISION_ATTEMPTS = 3
+    MAX_CHAPTER_ATTEMPTS = 2
 
     def __init__(self):
         self.writer = WriterAgent()
+        self.chapter_writer = ChapterWriterAgent()
         self.reviewer = ReviewerAgent()
 
     def get_scene_key(
@@ -209,6 +214,140 @@ class Coordinator:
                 else []
             ),
             "entity_changes": final_entity_changes if review_result.get("status") == "pass" else [],
+        }
+
+    async def run_chapter_writing_flow(
+        self,
+        *,
+        chapter_title: str,
+        constraints: list[SceneConstraint],
+        project_id: str,
+        chapter_number: int,
+        target_chars: int = CHAPTER_WORD_BUDGET,
+        db: Optional[AsyncSession] = None,
+        context_snapshot_id: Optional[str] = None,
+    ) -> dict:
+        """Draft and review one complete chapter with at most one repair."""
+        if not constraints:
+            raise ValueError("chapter writing requires at least one scene constraint")
+
+        event_id = f"{project_id}:{chapter_number}:whole-chapter"
+        observer = LLMCallObserver if db is not None else None
+        previous_content = ""
+        revision_issues: list[dict] = []
+        final_review: dict = {}
+        raw_content = ""
+
+        for attempt in range(1, self.MAX_CHAPTER_ATTEMPTS + 1):
+            prompt = self.chapter_writer.build_prompt(
+                chapter_number=chapter_number,
+                chapter_title=chapter_title,
+                constraints=constraints,
+                target_chars=target_chars,
+                previous_content=previous_content,
+                issues=revision_issues,
+            )
+            if observer is not None:
+                await observer.check_budget(
+                    project_id,
+                    chapter_number,
+                    prompt=prompt,
+                    expected_output_tokens=count_tokens(
+                        "汉" * target_chars, settings.llm_model
+                    ),
+                )
+
+            writer_started = time.perf_counter()
+            try:
+                raw_content = await self.chapter_writer.write_chapter(
+                    chapter_number=chapter_number,
+                    chapter_title=chapter_title,
+                    constraints=constraints,
+                    target_chars=target_chars,
+                    previous_content=previous_content,
+                    issues=revision_issues,
+                )
+            except Exception as exc:
+                if observer is not None:
+                    await observer.record(
+                        project_id=project_id,
+                        agent="chapter-writer",
+                        prompt=prompt,
+                        output="",
+                        started=writer_started,
+                        chapter_number=chapter_number,
+                        event_id=event_id,
+                        call_type="initial" if attempt == 1 else "retry",
+                        context_snapshot_id=context_snapshot_id,
+                        error=exc,
+                    )
+                raise
+            if observer is not None:
+                await observer.record(
+                    project_id=project_id,
+                    agent="chapter-writer",
+                    prompt=prompt,
+                    output=raw_content,
+                    started=writer_started,
+                    chapter_number=chapter_number,
+                    event_id=event_id,
+                    call_type="initial" if attempt == 1 else "retry",
+                    context_snapshot_id=context_snapshot_id,
+                )
+
+            if observer is not None:
+                await observer.check_budget(
+                    project_id,
+                    chapter_number,
+                    prompt=raw_content,
+                )
+            review_started = time.perf_counter()
+            final_review = await self.reviewer.review_chapter(
+                raw_content, constraints, target_chars
+            )
+            review_error = None
+            if final_review.get("status") == "error":
+                review_error = LLMError(
+                    f"Reviewer failed: {final_review.get('error') or 'Reviewer unavailable'}"
+                )
+            if observer is not None:
+                await observer.record(
+                    project_id=project_id,
+                    agent="chapter-reviewer",
+                    prompt=raw_content,
+                    output=final_review,
+                    started=review_started,
+                    chapter_number=chapter_number,
+                    event_id=event_id,
+                    call_type="initial",
+                    context_snapshot_id=context_snapshot_id,
+                    error=review_error,
+                )
+            if review_error is not None:
+                raise review_error
+            if final_review.get("status") == "pass" or attempt == self.MAX_CHAPTER_ATTEMPTS:
+                break
+
+            previous_content = raw_content
+            revision_issues = final_review.get("issues", [])
+
+        scene_numbers = [constraint.scene_number for constraint in constraints]
+        segments = split_chapter_draft(raw_content, scene_numbers)
+        compiled_content = "\n\n".join(segments[number] for number in scene_numbers)
+        passed = final_review.get("status") == "pass"
+        return {
+            "content": compiled_content,
+            "raw_content": raw_content,
+            "segments": segments,
+            "attempts": 1 + int(bool(previous_content)),
+            "passed": passed,
+            "issues": final_review.get("issues", []),
+            "style_review": final_review.get("style_review", {}),
+            "revision_count": int(bool(previous_content)),
+            "resolved_foreshadowing_ids": (
+                final_review.get("resolved_foreshadowing_ids", []) if passed else []
+            ),
+            "entity_changes": final_review.get("entity_changes", []) if passed else [],
         }
 
     async def _record_call(
