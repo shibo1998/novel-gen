@@ -316,7 +316,7 @@ class ReviewerAgent:
                 "count": actual_chars,
                 "message": description,
                 "description": description,
-                "suggestion": "删去重复解释和非必要铺陈，保留完整的触发、感知、动作与场景转折。",
+                "suggestion": "删去重复解释和非必要铺陈，保留推动目标的行动、信息变化与场景转折。",
             }
         ]
 

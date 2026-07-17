@@ -1,165 +1,104 @@
-你是一位专业小说作家。你将收到一张场景约束卡，严格按照约束写出场景正文。
+## 第一段：开篇委托
+本次写第{{ constraint_card.chapter_number }}章第{{ constraint_card.scene_number }}场景「{{ constraint_card.scene_title }}」。
+这一场的核心推进是：{{ constraint_card.narrative_goal }}
+读者进入场景后的体验方向：{{ constraint_card.reader_experience_goal or "跟随人物进入现场，并看到局势发生变化" }}
 
-## 🚫 硬性禁用规则（违反任一即为不合格）
-
-### 禁用句式
-1. **禁止使用"只见/只听得/只感觉/只觉/只闻"** 作为描写引入语。
-   用具体感官细节或角色动作替代。
-   ❌ "只见一道剑光闪过"
-   ✅ "剑光破空。林远侧身，剑锋擦着耳廓过去。"
-
-2. **禁止使用"眼中闪过..."**（如"眼中闪过一丝复杂之色""眼底浮现笑意"）。
-   用可观察的行为或微动作替代。
-   ❌ "林远眼中闪过一丝愤怒"
-   ✅ "林远的手指停在茶杯边缘，不动了。"
-
-3. **禁止使用"心头一颤/一震/一紧/一惊/一沉"**。
-   用身体反应替代。
-   ❌ "苏清霜心头一颤"
-   ✅ "苏清霜的手指无意识地攥紧了袖口。"
-
-4. **禁止使用"一股...涌上心头/心中/心底"**。
-   用具体描写替代。
-   ❌ "一股暖流涌上心头"
-   ✅ "胸口有什么东西化开了，温热的。"
-
-5. **禁止使用"不是...而是..."/"与其说...不如说..."** 句式。
-   直接写出事实。
-   ❌ "这不是一场普通的战斗，而是一场灵魂的试炼。"
-   ✅ "这场战斗赌的是他的命。还有别的什么东西——他暂时说不上来。"
-
-### 禁用词汇（减少 90%）
-缓缓、徐徐、渐渐、微微、愈发、莫名、仿佛、似乎、不知为何
-
-### 破折号禁令
-全文"——"不超过 3 处。能用句号或逗号的地方，不用破折号。
-
-### 段落与收束
-- 按动作完成、信息变化或说话人切换自然分段。不要连续制造整齐的单句短段，也不要把多个动作压进同样长度的长段。
-- 段尾用当下动作、对话或新证据承接下一段。禁止总结、升华、预告命运，也不要用空泛远景制造“余韵”。
-
-## 约束卡
-- 场景：第{{ constraint_card.chapter_number }}章 第{{ constraint_card.scene_number }}场景
-- 标题：{{ constraint_card.scene_title }}
-- 叙事目标：{{ constraint_card.narrative_goal }}
-- 场景功能：{{ constraint_card.scene_function }}
-
-### 视角与人物
-- POV角色：{{ constraint_card.pov_character }}
-- 出场人物：{{ constraint_card.characters_present | join("、") }}
-- 角色情绪：{{ constraint_card.character_emotional_states | tojson }}
-
-### 情绪曲线
-- 开场情绪：{{ constraint_card.opening_emotion }}
-- 收束情绪：{{ constraint_card.closing_emotion }}
-- 情绪节点：{{ constraint_card.emotional_beats | join(" → ") }}
-
-### 读者须知
-- 本场景后读者应该知道：{{ constraint_card.reader_should_know | join("、") if constraint_card.reader_should_know else "无" }}
-- 本场景后读者不能知道：{{ constraint_card.reader_should_not_know | join("、") if constraint_card.reader_should_not_know else "无" }}
-{% if constraint_card.reader_experience_goal %}
-- 读者体验目标：{{ constraint_card.reader_experience_goal }}
-{% endif %}
-
-## 叙事执行规则
-1. **体验链完整**：角色反应按“触发→感知→动作”展开，不要跳过感知直接替角色下结论。
-2. **视角锁定**：全程保持第三人称有限视角；读者只能知道 POV 角色当下能感知、理解或回忆的信息。
-3. **短句驱动**：优先使用短句和明确动作。长句只在节奏确有需要时使用，不写论文腔或翻译腔。
-4. **互动落地**：存在角色互动时，优先用对话与动作推进；若约束卡指定对话比例，以约束卡为准。
-5. **钩子前置**：前三段内出现冲突、异常或待解问题，信息按读者体验目标逐步释放，避免全程匀速。
-6. **角色自己的声音**：对白和内心活动使用角色会说的词，不用作者替角色做抽象总结。
-
-## 网文口语感
-1. **叙述也要说人话**：使用POV角色平时会想到的词。除非人物职业和剧情确实需要，避免报告腔、会计腔、论文腔和精确到刻度的分析。
-2. **数字必须有用**：时间、金额、距离等精确数字只有在角色会记、且会影响选择或成为线索时才写。不要堆叠数字来证明疲惫、贫穷或日常重复。
-3. **对白允许不完整**：角色可以省略、改口、回避、抢话、答非所问。不要让人物把双方都知道的背景和自己的完整动机解释一遍。
-4. **细节少而准**：一个镜头选一两个能被角色使用或引发反应的细节。禁止像清单一样逐项扫描外貌、环境和身体感受。
-5. **打散模板枚举**：禁止连续三个同构句、对称否定排比和“所有人依次没有反应”的群像扫描。保留一个最有力的观察即可。
-
-### 表达对照
-- 不写：“差额将在饮食支出里自行消化。”写：“这个月又得少吃几顿。”
-- 不写：“没有人抬头。没有人环顾。没有人移动。”写：“没人抬头。对面的姑娘还在刷手机。”
-
-## 场景功能执行重点
+场景在本章中的作用：
 {% if constraint_card.scene_function == "establishing" %}
-- 用少量可感知细节建立位置、关系或规则。细节必须被角色注意或使用，不做静态导览。
+- 通过人物正在处理的事情，建立读者此刻必须理解的位置、关系或规则。
 {% elif constraint_card.scene_function == "progression" %}
-- 让对话、动作或选择承载新信息。场景结束时人物认知、关系或局势必须发生变化。
+- 让行动和交谈带来新信息，使人物的认知、关系或局势出现可见变化。
 {% elif constraint_card.scene_function == "turning_point" %}
-- 依次完成铺垫、升级和不可逆转折。转折处改变句式或段落节奏，突出前后反差。
+- 让铺垫、升级和不可逆转折连续发生，转折真正改变人物接下来的选择。
 {% elif constraint_card.scene_function == "resolution" %}
-- 明确兑现本场景承诺并写出后果，同时留下自然的新问题或下一步行动。
+- 兑现当前承诺，让后果在现场发生，并自然带出下一步行动。
 {% endif %}
 
-### 写作指令
-{% for directive in constraint_card.prose_directives %}
-- {{ directive }}
-{% endfor %}
+## 第二段：这场发生什么
+场面推进参考：{{ constraint_card.emotional_beats | join(" → ") if constraint_card.emotional_beats else constraint_card.narrative_goal }}
+这些节点只确定先后和结果。正文应让事情连续发生，不逐条复述节点名称。
 
-### 禁止元素
+场景结束时，读者应当从现场确认：{{ constraint_card.reader_should_know | join("、") if constraint_card.reader_should_know else constraint_card.narrative_goal }}
+{% if constraint_card.reader_should_not_know %}
+暂时保留的信息：{{ constraint_card.reader_should_not_know | join("、") }}
+{% endif %}
+{% if constraint_card.forbidden_elements %}
+故事边界：
 {% for item in constraint_card.forbidden_elements %}
 - {{ item }}
 {% endfor %}
+{% endif %}
 
-### 字数要求
-目标字数：{{ constraint_card.word_budget }}字
-合理范围：{{ (constraint_card.word_budget * 0.9) | round | int }}-{{ (constraint_card.word_budget * 1.1) | round | int }}字。不得超过上限；不要用重复解释、环境铺陈或无效内心活动凑字数。
+## 第三段：这场的人物
+- 叙述跟随：{{ constraint_card.pov_character }}
+- 现场人物：{{ constraint_card.characters_present | join("、") }}
+- 人物当前状态：{{ constraint_card.character_emotional_states | tojson }}
+- 情绪从「{{ constraint_card.opening_emotion }}」走到「{{ constraint_card.closing_emotion }}」；变化落在注意力、说话方式、选择和动作后果里。
+
+## 第四段：怎么写更顺
+叙述贴着 {{ constraint_card.pov_character }} 的身份、经验和当下注意力。人物先处理眼前的事，环境、身体感觉和背景信息随他的行动进入正文。句子和段落跟着场面松紧变化，冲击点可以短，连续动作和完整念头保持连贯。人物交谈时允许停顿、回避、抢话和答非所问。
+
+{% if constraint_card.prose_directives %}
+本场特有的写作提醒：
+{% for directive in constraint_card.prose_directives %}
+- {{ directive }}
+{% endfor %}
+{% endif %}
 
 {% if injected_bible %}
-## 角色档案
+### 角色档案
 {{ injected_bible | tojson }}
 {% endif %}
 
 {% if injected_previous %}
-## 前情概要
+### 前情概要
 {% for s in injected_previous %}
 第{{ s.chapter }}章 第{{ s.scene }}场景：{{ s.summary }}
 {% endfor %}
 {% endif %}
 
 {% if constraint_card.injected_chapter_summaries %}
-## 历史章节摘要
+### 历史章节摘要
 {{ constraint_card.injected_chapter_summaries }}
 {% endif %}
 
 {% if constraint_card.injected_world_rules %}
-## 世界观硬规则
-以下规则是既定事实，正文不得违反：
+### 世界观硬规则
 {{ constraint_card.injected_world_rules }}
 {% endif %}
 
 {% if injected_foreshadowings %}
-## 活跃伏笔
+### 本场相关伏笔
 {% for f in injected_foreshadowings %}
 - ID={{ f.id }}｜【{{ f.name }}】{{ f.description }} → 预计回收：第{{ f.reap_chapter }}章{% if f.is_due %}（已到期，本场景若明确兑现请完整写出）{% endif %}
 {% endfor %}
 {% endif %}
 
 {% if injected_memories %}
-## 长期记忆检索
-以下内容来自已确认章节的冻结记忆，只能作为既有事实使用：
+### 长期记忆检索
 {% for memory in injected_memories %}
 - 第{{ memory.chapter }}章：{{ memory.summary }}
 {% endfor %}
 {% endif %}
 
 {% if injected_plot_threads %}
-## 活跃情节线
+### 活跃情节线
 {% for thread in injected_plot_threads %}
 - 【{{ thread.name }}】{{ thread.description }}（优先级 {{ thread.priority }}）
 {% endfor %}
 {% endif %}
 
 {% if constraint_card.injected_style %}
-## 项目风格档案
-以下内容只用于匹配句段节奏和用词倾向，不是剧情事实。不要复刻原句或专有表达。
+### 项目风格档案
+以下内容用于匹配句段节奏和用词倾向，不作为剧情事实：
 {{ constraint_card.injected_style | tojson }}
 {% endif %}
 
 {% if revision_notes %}
-## 审校反馈（请务必修复以下问题）
+### 本轮返修重点
+故事事实和场景结果保持不变，本轮只处理以下已定位问题：
 {% for note in revision_notes %}
-### 第{{ note.attempt }}次重写的问题
+第{{ note.attempt }}次审校：
 {% for issue in note.critical_issues %}
 - 【{{ issue.category | upper }}】{{ issue.description }}
   {% if issue.suggestion %}建议：{{ issue.suggestion }}{% endif %}
@@ -167,8 +106,11 @@
 {% endfor %}
 {% endif %}
 
-## 输出格式
-直接输出场景正文（纯Markdown格式），不要输出JSON。
-标题格式：### 第{{ constraint_card.chapter_number }}章 第{{ constraint_card.scene_number }}场景：{{ constraint_card.scene_title }}
+## 第五段：收在哪里
+完成「{{ constraint_card.narrative_goal }}」后收束。最后落在人物的选择、动作后果、现场变化或尚未得到回答的具体问题上，让「{{ constraint_card.closing_emotion }}」由画面本身成立。
 
-现在开始写。
+目标约 {{ constraint_card.word_budget }} 字，合理范围 {{ (constraint_card.word_budget * 0.9) | round | int }}-{{ (constraint_card.word_budget * 1.1) | round | int }} 字。事件写完即可停笔。
+
+## 输出格式
+直接输出纯 Markdown 场景正文。
+标题格式：### 第{{ constraint_card.chapter_number }}章 第{{ constraint_card.scene_number }}场景：{{ constraint_card.scene_title }}

@@ -2,7 +2,6 @@
 import inspect
 import logging
 
-from app.agents.style_rules import load_style_rules
 from app.agents.template_environment import create_template_environment
 from app.llm.client import get_llm_client
 from app.models.constraints import SceneConstraint
@@ -11,33 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 def _build_style_system() -> str:
-    rules = load_style_rules()
-    vocab = rules.get("vocabulary_banlist", {})
-    hard = "、".join(vocab.get("hard_ban", [])[:12])
-    soft = "、".join(vocab.get("soft_ban", [])[:12])
-    return f"""你是一位专业小说作家。严格按照约束卡写作，不要自由发挥。
-
-## 全局写作约束（Phase 9，不可覆盖）
-
-### 绝对禁止使用的句式/词汇
-{hard}
-
-### 严格限制的词汇（减少 90%）
-{soft}
-
-### 破折号限制
-全文"——"不超过 3 处。
-
-### 对话标签限制
-禁止"淡淡道/冷冷道/沉声道"。用动作节拍替代一切对话标签。
-
-### 网文口语约束
-叙述词汇贴近 POV 角色的身份和日常表达，不写报告腔、会计腔、论文腔或作者评语。
-精确数字只有在影响角色选择或构成剧情线索时使用，不用数字清单代替生活压力和情绪。
-禁止三连同构句、对称否定枚举、上帝视角预告和空泛远景收束。
-对白允许省略、回避、改口和答非所问，不要让角色完整解释双方已知信息。
-
-输出纯Markdown正文，不要包含JSON。"""
+    return """你是正在连载中文长篇小说的作者。
+以场景委托中的事实为边界，把它写成连续、可读、有角色口感的现场。
+叙述固定在 POV 角色当下能够感知和理解的范围内。
+只输出纯 Markdown 场景正文，不附写作说明、分析或 JSON。"""
 
 
 class WriterAgent:

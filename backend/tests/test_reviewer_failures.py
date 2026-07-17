@@ -139,3 +139,11 @@ def test_reviewer_detects_high_confidence_narrative_templates():
     assert "SYMMETRIC_NEGATION" in issue_ids
     assert "AUTHOR_FOREKNOWLEDGE" in issue_ids
     assert "ESSAY_VOICE" in issue_ids
+
+
+def test_reviewer_detects_cross_sentence_negative_redefinition():
+    issues = ReviewerAgent()._detect_ai_patterns(
+        "陆衡的太阳穴往里钻了一下。不是疼。是坐久后猛然起身的发懵。"
+    )
+
+    assert "PARADIASTOLE" in {issue["id"] for issue in issues}

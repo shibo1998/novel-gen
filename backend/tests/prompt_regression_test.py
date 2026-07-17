@@ -34,7 +34,7 @@ def _constraint(case: dict) -> SceneConstraint:
         reader_should_not_know=[],
         reader_experience_goal="前三段紧张，中段升级，结尾产生继续阅读的冲动",
         prose_directives=[f"保持{event['tone']}语气"],
-        forbidden_elements=case["expected_patterns"].get("must_not_contain", []),
+        forbidden_elements=[],
         word_budget=max(500, min(3000, event["estimated_words"])),
         injected_bible={event["actor"]: {"internal_state": event["internal_state"]}},
         injected_previous=[{"chapter": 14, "scene": 2, "summary": event["trigger"]}],
@@ -68,11 +68,15 @@ def test_prompt_baseline_contract_is_persisted_and_satisfied():
     prompt = WriterAgent()._build_prompt(_constraint(GOLDEN_TEST_CASES[0]))
     system = _build_style_system()
 
-    assert baseline["schema_version"] == 4
+    assert baseline["schema_version"] == 5
     for section in baseline["required_sections"]:
         assert section in prompt
     for phrase in baseline["system_required_phrases"]:
         assert phrase in system
+    for phrase in baseline["system_forbidden_phrases"]:
+        assert phrase not in system
+    for phrase in baseline["prompt_forbidden_phrases"]:
+        assert phrase not in prompt
     assert "{{" not in prompt and "{%" not in prompt
 
 
@@ -85,7 +89,7 @@ def test_every_golden_case_renders_real_writer_prompt(case):
     assert event["action"] in prompt
     assert event["result"] in prompt
     assert "前三段紧张，中段升级" in prompt
-    assert "触发→感知→动作" in prompt
+    assert "这些节点只确定先后和结果" in prompt
 
 
 def test_writer_prompt_includes_a_bounded_word_budget_range():
@@ -94,27 +98,28 @@ def test_writer_prompt_includes_a_bounded_word_budget_range():
 
     prompt = WriterAgent()._build_prompt(constraint)
 
-    assert "目标字数：1200字" in prompt
-    assert "合理范围：1080-1320字" in prompt
-    assert "不得超过上限" in prompt
+    assert "目标约 1200 字" in prompt
+    assert "合理范围 1080-1320 字" in prompt
+    assert "事件写完即可停笔" in prompt
 
 
-def test_writer_prompt_prefers_colloquial_web_fiction_without_mechanical_quotas():
+def test_writer_prompt_uses_positive_craft_guidance_without_copyable_examples():
     prompt = WriterAgent()._build_prompt(_constraint(GOLDEN_TEST_CASES[0]))
 
-    assert "网文口语感" in prompt
-    assert "对白允许不完整" in prompt
-    assert "精确数字只有" in prompt
+    assert "叙述贴着 林远 的身份、经验和当下注意力" in prompt
+    assert "人物交谈时允许停顿、回避、抢话和答非所问" in prompt
+    assert "这个月又得少吃几顿" not in prompt
+    assert "绝对禁止使用的句式" not in prompt
     assert "50% 的段落结尾" not in prompt
 
 
 @pytest.mark.parametrize(
     ("scene_function", "required_phrase"),
     [
-        ("establishing", "不做静态导览"),
-        ("progression", "局势必须发生变化"),
+        ("establishing", "建立读者此刻必须理解的位置、关系或规则"),
+        ("progression", "局势出现可见变化"),
         ("turning_point", "不可逆转折"),
-        ("resolution", "写出后果"),
+        ("resolution", "让后果在现场发生"),
     ],
 )
 def test_writer_prompt_adapts_to_scene_function(scene_function, required_phrase):
