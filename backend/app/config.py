@@ -1,14 +1,17 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
     """应用配置"""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_BACKEND_ENV_FILE),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -63,7 +66,7 @@ class Settings(BaseSettings):
     llm_max_retries: int = 3
     llm_circuit_breaker_threshold: int = 5
     llm_max_tokens: int = 8192
-    prompt_version: str = "v1"
+    prompt_version: str = "v4"
     max_recovery_attempts: int = 2
     scene_recovery_allowance: float = 1.0
     max_cost_per_chapter: float = 1.50

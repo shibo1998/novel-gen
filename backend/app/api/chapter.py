@@ -16,6 +16,7 @@ from app.pipeline.task_queue import task_manager
 from app.services.bible_version_manager import BibleVersionManager
 from app.services.consistency_checker import check_due_foreshadowing_coverage
 from app.services.foreshadow_scheduler import ForeshadowScheduler
+from app.services.word_budget import CHAPTER_WORD_BUDGET, distribute_scene_word_budgets
 
 logger = __import__("logging").getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["章节"])
@@ -87,6 +88,7 @@ async def expand_chapter(
         "project_id": str(project_id),
         "chapter_id": str(chapter_id),
         "project_data": dict(project.data or {}),
+        "chapter_word_budget": CHAPTER_WORD_BUDGET,
         "chapter": {
             "number": chapter.chapter_number,
             "title": chapter.title or f"第{chapter.chapter_number}章",
@@ -143,6 +145,7 @@ async def expand_chapter(
                 "project_id": str(project_uuid),
                 "chapter_number": expansion_payload["chapter"]["number"],
                 "chapter": chapter_data,
+                "chapter_word_budget": expansion_payload["chapter_word_budget"],
                 "characters": char_list,
                 "hard_constraints": hard_constraints,
                 "soft_constraints": soft_constraints,
@@ -153,6 +156,10 @@ async def expand_chapter(
             })
 
             scenes = result if isinstance(result, list) else [result]
+            scenes = distribute_scene_word_budgets(
+                scenes,
+                expansion_payload["chapter_word_budget"],
+            )
             warnings = check_due_foreshadowing_coverage(schedule["due"], scenes)
             if warnings:
                 logger.warning(
@@ -240,6 +247,7 @@ async def list_chapter_scenes(
             "content": s.content,
             "word_count": s.word_count,
             "status": s.status,
+            "review_result": s.review_result,
         }
         for s in scenes
     ]

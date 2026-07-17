@@ -57,3 +57,20 @@ def test_chapter_idempotency_key_is_stable_and_fits_database_column():
     assert first == repeated
     assert first != changed
     assert len(first) <= 100
+
+
+def test_assign_chapter_word_budgets_refreshes_old_constraint_cards():
+    scenes = [
+        SimpleNamespace(
+            constraint_card={
+                "word_budget": old_budget,
+                "prose_directives": ["叙述保持克制口吻"],
+            }
+        )
+        for old_budget in (1200, 1000, 1000)
+    ]
+
+    writing._assign_chapter_word_budgets(scenes)
+
+    assert [scene.constraint_card["word_budget"] for scene in scenes] == [834, 833, 833]
+    assert scenes[0].constraint_card["prose_directives"] == ["叙述保持克制口吻"]

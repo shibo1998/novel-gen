@@ -6,6 +6,7 @@
 - 问题 11：启动安全校验 —— 生产环境默认密钥/弱口令拒绝启动，开发仅告警。
 """
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -13,6 +14,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from app.config import Settings
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.main import app
@@ -111,8 +113,6 @@ async def test_get_entity_owned_project_returns_data():
 
 
 def _make_settings(**overrides):
-    from app.config import Settings
-
     base = dict(
         secret_key="x" * 40,
         db_password="a-strong-db-password",
@@ -155,3 +155,10 @@ def test_development_only_warns_never_raises():
     # 开发环境即使全是默认值也放行
     settings.validate_security()
     assert settings.security_warnings()  # 但确实检测到了告警项
+
+
+def test_settings_load_backend_env_independent_of_working_directory():
+    configured_env = Path(Settings.model_config["env_file"])
+
+    assert configured_env.is_absolute()
+    assert configured_env == Path(__file__).resolve().parents[1] / ".env"

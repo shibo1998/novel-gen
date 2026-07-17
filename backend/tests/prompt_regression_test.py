@@ -32,6 +32,7 @@ def _constraint(case: dict) -> SceneConstraint:
         emotional_beats=[event["trigger"], event["action"], event["result"]],
         reader_should_know=[event["result"]],
         reader_should_not_know=[],
+        reader_experience_goal="前三段紧张，中段升级，结尾产生继续阅读的冲动",
         prose_directives=[f"保持{event['tone']}语气"],
         forbidden_elements=case["expected_patterns"].get("must_not_contain", []),
         word_budget=max(500, min(3000, event["estimated_words"])),
@@ -67,7 +68,7 @@ def test_prompt_baseline_contract_is_persisted_and_satisfied():
     prompt = WriterAgent()._build_prompt(_constraint(GOLDEN_TEST_CASES[0]))
     system = _build_style_system()
 
-    assert baseline["schema_version"] == 1
+    assert baseline["schema_version"] == 4
     for section in baseline["required_sections"]:
         assert section in prompt
     for phrase in baseline["system_required_phrases"]:
@@ -83,6 +84,55 @@ def test_every_golden_case_renders_real_writer_prompt(case):
     assert event["trigger"] in prompt
     assert event["action"] in prompt
     assert event["result"] in prompt
+    assert "前三段紧张，中段升级" in prompt
+    assert "触发→感知→动作" in prompt
+
+
+def test_writer_prompt_includes_a_bounded_word_budget_range():
+    constraint = _constraint(GOLDEN_TEST_CASES[0])
+    constraint.word_budget = 1200
+
+    prompt = WriterAgent()._build_prompt(constraint)
+
+    assert "目标字数：1200字" in prompt
+    assert "合理范围：1080-1320字" in prompt
+    assert "不得超过上限" in prompt
+
+
+def test_writer_prompt_prefers_colloquial_web_fiction_without_mechanical_quotas():
+    prompt = WriterAgent()._build_prompt(_constraint(GOLDEN_TEST_CASES[0]))
+
+    assert "网文口语感" in prompt
+    assert "对白允许不完整" in prompt
+    assert "精确数字只有" in prompt
+    assert "50% 的段落结尾" not in prompt
+
+
+@pytest.mark.parametrize(
+    ("scene_function", "required_phrase"),
+    [
+        ("establishing", "不做静态导览"),
+        ("progression", "局势必须发生变化"),
+        ("turning_point", "不可逆转折"),
+        ("resolution", "写出后果"),
+    ],
+)
+def test_writer_prompt_adapts_to_scene_function(scene_function, required_phrase):
+    constraint = _constraint(GOLDEN_TEST_CASES[0])
+    constraint.scene_function = scene_function
+
+    prompt = WriterAgent()._build_prompt(constraint)
+
+    assert required_phrase in prompt
+
+
+def test_writer_template_loads_outside_backend_working_directory(monkeypatch):
+    constraint = _constraint(GOLDEN_TEST_CASES[0])
+    monkeypatch.chdir(Path(__file__).parents[2])
+
+    prompt = WriterAgent()._build_prompt(constraint)
+
+    assert constraint.narrative_goal in prompt
     assert "长期记忆检索" in prompt
     assert "月圆时左手伤痕发烫" in prompt
 

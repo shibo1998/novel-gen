@@ -22,6 +22,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function FallbackRoute() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  return <Navigate to={isAuthenticated ? '/' : '/login'} replace />
+}
+
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth)
   useEffect(() => { void checkAuth() }, [checkAuth])
@@ -65,6 +70,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<FallbackRoute />} />
       </Routes>
     </BrowserRouter></ErrorBoundary>
   )

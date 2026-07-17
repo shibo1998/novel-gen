@@ -14,6 +14,9 @@
 ### 情绪要求
 - 开场情绪：{{ constraint_card.opening_emotion }}
 - 收束情绪：{{ constraint_card.closing_emotion }}
+{% if constraint_card.reader_experience_goal %}
+- 读者体验目标：{{ constraint_card.reader_experience_goal }}
+{% endif %}
 
 ### 写作指令
 {% for directive in constraint_card.prose_directives %}
@@ -63,6 +66,14 @@
 - prose_directives 是否遵守？
 - forbidden_elements 是否出现？
 
+### 4. 风格与阅读体验评分
+每个维度给 1-10 分，并引用一句具体证据。禁止泛泛评价文笔好坏。
+这些分数只作为作者诊断，不得仅因分数低而把 passed 改为 false，也不得自动写入 issues。
+只有正文明确违反 prose_directives 或其他约束时，才按“约束合规”记录 issue。
+- dialogue_density：有角色互动时，对话是否承担了足够的冲突和信息；无互动场景按功能合理性评分，不机械要求比例。
+- pacing：信息释放是否符合 reader_experience_goal，是否形成清晰的松紧变化，而非全程均匀。
+- colloquialism：对白、内心活动和贴身叙述是否像角色本人。重点指出报告腔、会计腔、论文腔、精确数字堆叠、完整解释动机或所有角色说话一样的问题。
+
 ## 输出要求
 
 输出JSON格式的审校结果：
@@ -79,6 +90,11 @@
     }
   ],
   "summary": "一句话总结",
+  "style_review": {
+    "dialogue_density": {"score": 1到10的整数, "evidence": "原文证据或具体缺口"},
+    "pacing": {"score": 1到10的整数, "evidence": "原文证据或具体缺口"},
+    "colloquialism": {"score": 1到10的整数, "evidence": "原文证据或具体缺口"}
+  },
   "resolved_foreshadowing_ids": ["仅填写本场景正文已明确回收的伏笔ID"],
   "entity_changes": [
     {
@@ -95,4 +111,5 @@
 - severity=major 表示影响阅读但可接受的问题
 - severity=minor 表示风格建议，可忽略
 - passed=true 仅在无 critical 和 major 问题时返回
+- style_review 三个维度必须全部返回；分数必须是 1-10 的整数
 - entity_changes 只记录正文已经明确发生、会影响后续章节的持久事实变化；不得创建新实体，不得推测未写明的变化

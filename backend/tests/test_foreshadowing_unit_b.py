@@ -164,6 +164,11 @@ def test_chapter_prompt_includes_due_id_history_and_semantic_memory():
     assert "foreshadowing_ids" in prompt
     assert '"injury": "healed"' in prompt
     assert '"status": "\\u51b3\\u88c2"' in prompt
+    assert "reader_experience_goal" in prompt
+
+    schema = ChapterAgent().output_schema()["items"]
+    assert "reader_experience_goal" in schema["properties"]
+    assert "reader_experience_goal" in schema["required"]
 
 
 def test_planning_characters_use_previous_chapter_bible_snapshot():

@@ -72,3 +72,32 @@ async def test_coordinator_stops_when_reviewer_is_unavailable(monkeypatch):
 
     coordinator.writer.write_scene.assert_awaited_once()
     coordinator.reviewer.review.assert_awaited_once()
+
+
+async def test_coordinator_returns_style_diagnostics_without_forcing_rewrite(monkeypatch):
+    coordinator = Coordinator()
+    coordinator.writer.write_scene = AsyncMock(return_value="场景正文")
+    coordinator.reviewer.review = AsyncMock(
+        return_value={
+            "status": "pass",
+            "issues": [],
+            "style_review": {
+                "dialogue_density": {"score": 3, "evidence": "对话较少"}
+            },
+        }
+    )
+    monkeypatch.setattr(
+        "app.pipeline.coordinator.BudgetGuard.check_call_budget",
+        AsyncMock(),
+    )
+
+    result = await coordinator.run_writing_flow(
+        _constraint(),
+        project_id="project-1",
+        chapter_number=1,
+    )
+
+    assert result["passed"] is True
+    assert result["revision_count"] == 0
+    assert result["style_review"]["dialogue_density"]["score"] == 3
+    coordinator.writer.write_scene.assert_awaited_once()

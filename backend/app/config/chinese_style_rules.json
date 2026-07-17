@@ -89,6 +89,35 @@
             }
         ]
     },
+    "narrative_pattern_rules": {
+        "description": "高置信叙事模式；只扫描明确模板，不把题材相关写法一刀切",
+        "rules": [
+            {
+                "id": "AUTHOR_FOREKNOWLEDGE",
+                "name": "上帝视角预告",
+                "pattern": "(?:他|她|他们|她们|众人|所有人)?不知道的是|殊不知|冥冥之中|多年以后才(?:明白|知道|发现)",
+                "threshold": 0,
+                "severity": "critical",
+                "message": "叙述者跳出当前POV预告后文，应改为角色当下可感知的证据"
+            },
+            {
+                "id": "ESSAY_VOICE",
+                "name": "论文式叙述",
+                "pattern": "不难看出|由此可见|综上所述|于是乎|诚然",
+                "threshold": 0,
+                "severity": "major",
+                "message": "检测到论文或讲义式连接语，应直接写动作、事实或角色判断"
+            },
+            {
+                "id": "SYMMETRIC_NEGATION",
+                "name": "对称否定枚举",
+                "pattern": "(?:没有人|没人)[^。！？\\n]{0,24}[。；，]\\s*(?:没有人|没人)[^。！？\\n]{0,24}[。；，]\\s*(?:没有人|没人)",
+                "threshold": 0,
+                "severity": "major",
+                "message": "连续三次对称否定形成模板化群像扫描，只保留最有力的一个观察"
+            }
+        ]
+    },
     "chapter_level_rules": {
         "description": "整章级别的检测",
         "rules": [
@@ -102,7 +131,7 @@
                 "id": "EXCESSIVELY_SMOOTH",
                 "name": "过于平滑",
                 "check": "本章所有场景是否都有完整收尾、无断裂、无留白",
-                "message": "本章叙事过于平滑，建议触发毛刺注入"
+                "message": "本章叙事过于平滑，应在下一轮规划中调整节奏，不得在审校后随机改写正文"
             }
         ]
     },

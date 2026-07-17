@@ -231,6 +231,7 @@ async def recover_task(
                     "passed": result["passed"],
                     "issues": result["issues"],
                     "revision_count": result["revision_count"],
+                    "style_review": result.get("style_review", {}),
                     },
                 )
                 effective_passed = review_result["passed"]

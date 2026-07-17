@@ -1,4 +1,4 @@
-"""Coordinator 编排器 —— Phase 9 增强版（写→审→重试循环 + 毛刺注入）"""
+"""Coordinator 编排器 —— 写作、审校与重试循环。"""
 import logging
 import time
 from datetime import datetime
@@ -14,7 +14,6 @@ from app.models.constraints import RevisionNote, SceneConstraint
 from app.services.budget_guard import BudgetGuard
 from app.services.metrics_collector import LLMCallMetrics, MetricsCollector
 from app.services.pricing import estimate_cost
-from app.services.style_analyzer import style_analyzer
 from app.utils.tokens import count_tokens, count_tokens_pair
 
 logger = logging.getLogger(__name__)
@@ -22,14 +21,13 @@ logger = logging.getLogger(__name__)
 
 class Coordinator:
     """
-    写作协调器 - 管理写作-审校循环 + 毛刺注入
+    写作协调器 - 管理写作、审校与重试循环
 
     流程：
       1. WriterAgent 生成场景正文
       2. ReviewerAgent 审校（含 Phase 9 AI 味检测）
       3. 若有问题 → 注入反馈 → 重写（最多 MAX_REVISION_ATTEMPTS 次）
-      4. 全部通过 → StyleAnalyzer.inject_human_roughness() 注入毛刺
-      5. 落库
+      4. 返回最后一次经过审校的正文
     """
 
     MAX_REVISION_ATTEMPTS = 3
@@ -62,12 +60,12 @@ class Coordinator:
         Args:
             constraint: 场景约束卡
             project_id: 项目 ID（用于生成 scene_key）
-            chapter_number: 章号（用于毛刺注入判断）
+            chapter_number: 章号
             on_token: 流式回调，每收到一段 token 调用一次
 
         Returns:
             {
-                "content": str,          # 最终正文（含毛刺）
+                "content": str,          # 最终审校正文
                 "attempts": int,          # 尝试次数
                 "passed": bool,          # 是否通过审校
                 "issues": list,           # 最终问题列表
@@ -82,6 +80,7 @@ class Coordinator:
         revision_history: list[RevisionNote] = []
         final_content = ""
         final_issues: list = []
+        final_style_review: dict = {}
         final_resolved_foreshadowing_ids: list[str] = []
         final_entity_changes: list[dict] = []
         revision_count = 0
@@ -168,6 +167,7 @@ class Coordinator:
             critical = [i for i in issues if i.get("severity") == "critical"]
             major = [i for i in issues if i.get("severity") == "major"]
             final_issues = issues
+            final_style_review = review_result.get("style_review", {})
             final_resolved_foreshadowing_ids = review_result.get(
                 "resolved_foreshadowing_ids", []
             )
@@ -196,28 +196,12 @@ class Coordinator:
 
             revision_count += 1
 
-        # ── 4. 毛刺注入（通过后执行） ─────────────────────
-        inject_needed = (
-            chapter_number % 5 == 0 or revision_count > 0
-        )
-        if inject_needed and final_content:
-            try:
-                final_content = await style_analyzer.inject_human_roughness(
-                    final_content,
-                    chapter_number,
-                    force=(revision_count > 0),
-                    project_id=project_id,
-                    context_snapshot_id=context_snapshot_id,
-                )
-                logger.debug("injected roughness: scene=%s", scene_key)
-            except Exception as e:
-                logger.warning("inject_human_roughness failed: %s", e)
-
         return {
             "content": final_content,
             "attempts": len(revision_history),
             "passed": review_result.get("status") == "pass",
             "issues": final_issues,
+            "style_review": final_style_review,
             "revision_count": revision_count,
             "resolved_foreshadowing_ids": (
                 final_resolved_foreshadowing_ids

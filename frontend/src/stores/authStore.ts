@@ -57,17 +57,25 @@ export const useAuthStore = create<AuthState>((set) => ({
   checkAuth: async () => {
     const token = tokenStorage.get()
     if (!token) {
-      set({ isAuthenticated: false, isLoading: false })
+      set({ isAuthenticated: false, user: null, isLoading: false })
       return
     }
     set({ isLoading: true })
     try {
       const user = await authApi.getCurrentUser()
       set({ isAuthenticated: true, user, isLoading: false })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Authentication check failed', error)
-      tokenStorage.clear()
-      set({ isAuthenticated: false, user: null, isLoading: false })
+      const status = error.response?.status
+      const authenticationFailed = status === 401 || status === 403 || status === 404
+      if (authenticationFailed) {
+        tokenStorage.clear()
+        set({ isAuthenticated: false, user: null, isLoading: false })
+        return
+      }
+
+      // Service restarts, timeouts and 5xx responses do not invalidate a JWT.
+      set({ isAuthenticated: true, isLoading: false })
     }
   },
 }))

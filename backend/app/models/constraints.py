@@ -22,6 +22,12 @@ class SceneConstraint(BaseModel):
 
     reader_should_know: List[str]
     reader_should_not_know: List[str]
+    reader_experience_goal: str = Field(
+        default="",
+        description=(
+            "给 Writer 的具体读者体验目标，例如前段疲惫、中段紧张、结尾产生翻页冲动"
+        ),
+    )
 
     prose_directives: List[str]
     forbidden_elements: List[str]
@@ -58,3 +64,4 @@ class ReviewResult(BaseModel):
     issues: List[dict] = Field(default_factory=list)
     summary: str = ""
     needs_human_review: bool = False
+    style_review: dict = Field(default_factory=dict)

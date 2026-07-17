@@ -30,6 +30,9 @@
 {% endfor %}
 {% endif %}
 - 建议POV：{{ chapter.pov_character }}
+{% if chapter_word_budget %}
+- 本章正文目标：{{ chapter_word_budget }}字
+{% endif %}
 
 ## 全书世界观约束（必须遵守）
 {% for c in hard_constraints %}
@@ -58,7 +61,7 @@
 {% endif %}
 
 ## 输出要求
-将本章展开为3-5个场景，每个场景输出一张约束卡（JSON数组）：
+将本章展开为2-5个场景，每个场景输出一张约束卡（JSON数组）。场景数量由叙事任务决定，不要为了拆场景而拆场景：
 
 每个场景包含：
 - chapter_number, scene_number, scene_title
@@ -68,15 +71,29 @@
 - character_emotional_states：每个出场角色的开场情绪
 - opening_emotion, closing_emotion, emotional_beats（列表）
 - reader_should_know, reader_should_not_know（列表）
-- prose_directives（列表）：具体写作指令，如"短句为主""禁止内心独白""对话占比50%+"
+- reader_experience_goal：读者层面的具体体验曲线，不写角色任务。例如“前三段压抑疲惫，中段骤然紧张，结尾留下必须翻页的不安”
+- prose_directives（0-2条）：只写本场景特有的高层表达原则，也可以为空。例如“叙述保持陆衡克制、疲惫的口吻”“异常出现后节奏突然加快”
 - forbidden_elements（列表）：本场景禁止出现的元素
 - foreshadowing_ids（列表）：本场景实际处理的伏笔 ID；没有则输出空列表
-- word_budget：字数预算（800-2000，根据场景功能调整）
+- word_budget：字数预算（500-3000）
 
 ## 重要原则
-- 每张约束卡要足够具体，写作Agent拿到后不需要自行判断即可执行
-- prose_directives 越细越好——"用短句"不如"每句不超过30字，段落不超过4句"
-- word_budget 要合理——过渡场景800字够，高潮场景可以2000
+- 约束卡只负责叙事结果、事实边界和读者体验，不负责逐句导演。Writer 必须保留正常的行文判断空间
+- narrative_goal 回答“写什么”，reader_experience_goal 回答“读者按什么顺序感受到什么”；两者不得重复
+- prose_directives 只在本场景确有特殊需要时填写，最多2条；通用写作规则由 Writer 统一负责，不得重复塞进每张约束卡
+- 禁止在 prose_directives 中指定字数、句长、段落句数、对话比例、标点数量、具体动作清单、感官清单、环境细节清单或必须使用的精确数字
+- 不要把“越具体越好”当成质量标准。能由 Writer 根据人物和现场自然决定的内容，不写进约束卡
+- prose_directives 必须匹配 scene_function：
+  - establishing：用少量可感知细节建立位置、关系或规则，避免静态导览
+  - progression：让对话、动作或选择承载新信息，场景结束时局势必须发生变化
+  - turning_point：明确写出铺垫、升级和不可逆转折，转折前后形成节奏反差
+  - resolution：兑现本场景承诺并写出后果，同时保留自然的新问题或下一步行动
+{% if chapter_word_budget %}
+- 本章总字数固定为 {{ chapter_word_budget }} 字。先确定场景数，再把 {{ chapter_word_budget }} 除以场景数，给每个场景分配相同或相差不超过1字的 word_budget；所有场景之和必须恰好等于 {{ chapter_word_budget }}
+{% else %}
+- word_budget 要按场景重要性分配，不得把每场都填成相同字数
+{% endif %}
+- 不要用环境描写、重复解释或无效内心活动凑字数
 {% if due_foreshadowings %}
 - 本章每条 due 伏笔都必须至少出现在一个场景的 foreshadowing_ids 中，并明确写进该场景的 narrative_goal 或 reader_should_know；不得只在备注中提及
 {% endif %}

@@ -29,9 +29,34 @@ from app.services.llm_observability import LLMCallObserver
 from app.services.prose_compliance import apply_scene_compliance
 from app.services.quality_workflow import QualityWorkflow
 from app.services.reviewed_bible_changes import apply_reviewed_bible_changes
+from app.services.word_budget import scene_word_budget_values
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/scenes", tags=["写作"])
+
+
+def _assign_chapter_word_budgets(scenes: list[Scene]) -> None:
+    """Refresh persisted constraint cards before any writing snapshot is frozen."""
+    for scene, budget in zip(scenes, scene_word_budget_values(len(scenes))):
+        constraint_card = dict(getattr(scene, "constraint_card", None) or {})
+        constraint_card["word_budget"] = budget
+        scene.constraint_card = constraint_card
+
+
+async def _refresh_chapter_constraint_cards(
+    db: AsyncSession,
+    scene: Scene,
+) -> None:
+    chapter_scenes = list(
+        (
+            await db.execute(
+                select(Scene)
+                .where(Scene.chapter_id == scene.chapter_id)
+                .order_by(Scene.scene_number)
+            )
+        ).scalars().all()
+    )
+    _assign_chapter_word_budgets(chapter_scenes)
 
 
 def _chapter_idempotency_key(
@@ -168,6 +193,7 @@ async def stream_write_scene(
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Scene not found'})}\n\n"
                 return
 
+            await _refresh_chapter_constraint_cards(db, scene)
             constraint_card = scene.constraint_card or {}
             constraint = SceneConstraint(**constraint_card)
             constraint, context, allocation = await _build_writing_context(
@@ -298,8 +324,7 @@ async def write_scene_auto(
       1. WriterAgent 生成正文
       2. ReviewerAgent 审校（含 AI 味检测）
       3. 若有问题 → 注入反馈 → 重写（最多3次）
-      4. 全部通过 → 毛刺注入（每5章强制 + 重写后强制）
-      5. 落库（scene.content + scene.status=confirmed）
+      4. 落库最后一次经过审校的正文（scene.content + scene.status=confirmed）
 
     返回 task_id，前端轮询状态或订阅 SSE。
     """
@@ -312,6 +337,7 @@ async def write_scene_auto(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    await _refresh_chapter_constraint_cards(db, scene)
     constraint_card = scene.constraint_card or {}
     constraint = SceneConstraint(**constraint_card)
     constraint, context, allocation_report = await _build_writing_context(db, scene.project_id, constraint)
@@ -398,6 +424,7 @@ async def write_scene_auto(
                         "passed": flow_result["passed"],
                         "issues": flow_result["issues"],
                         "revision_count": flow_result["revision_count"],
+                        "style_review": flow_result.get("style_review", {}),
                         },
                     )
                     effective_passed = review_result["passed"]
@@ -452,6 +479,7 @@ async def write_scene_auto(
                 "revision_count": revision_count,
                 "passed": effective_passed,
                 "issues": issues,
+                "style_review": flow_result.get("style_review", {}),
                 "word_count": len(content),
                 }
 
@@ -514,6 +542,7 @@ async def write_chapter_auto(
         .order_by(Scene.scene_number)
     )
     scenes = list(all_scenes_result.scalars().all())
+    _assign_chapter_word_budgets(scenes)
 
     jobs = []
     snapshot_store = ContextSnapshotStore(db)
@@ -615,6 +644,7 @@ async def write_chapter_auto(
                         "passed": flow_result["passed"],
                         "issues": flow_result["issues"],
                         "revision_count": flow_result["revision_count"],
+                        "style_review": flow_result.get("style_review", {}),
                         },
                     )
                     effective_passed = review_result["passed"]
@@ -658,6 +688,7 @@ async def write_chapter_auto(
                         "word_count": len(flow_result["content"]),
                         "passed": effective_passed,
                         "revisions": flow_result["revision_count"],
+                        "style_review": flow_result.get("style_review", {}),
                     })
                 except Exception as e:
                     logger.exception("write-chapter failed for scene %s", sid)

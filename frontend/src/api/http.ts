@@ -9,6 +9,13 @@ export const tokenStorage = {
   },
 }
 
+export const redirectToLogin = () => {
+  tokenStorage.clear()
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login')
+  }
+}
+
 export const getApiBaseUrl = () => API_BASE_URL
 
 export const authHeaders = (): Record<string, string> => {
@@ -16,14 +23,19 @@ export const authHeaders = (): Record<string, string> => {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export const authorizedFetch = (path: string, init: RequestInit = {}) =>
-  fetch(`${API_BASE_URL}${path}`, {
+export const authorizedFetch = async (path: string, init: RequestInit = {}) => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       ...authHeaders(),
       ...init.headers,
     },
   })
+  if (response.status === 401) {
+    redirectToLogin()
+  }
+  return response
+}
 
 export const streamFetch = (path: string, init: RequestInit = {}) =>
   authorizedFetch(path, init)

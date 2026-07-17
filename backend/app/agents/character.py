@@ -3,8 +3,7 @@
 import json
 import time
 
-from jinja2 import Environment, FileSystemLoader
-
+from app.agents.template_environment import create_template_environment
 from app.llm.client import collect_stream_text, get_llm_client
 from app.services.llm_observability import LLMCallObserver
 
@@ -12,7 +11,7 @@ from app.services.llm_observability import LLMCallObserver
 class CharacterAgent:
     def __init__(self):
         self.llm = get_llm_client()
-        self.jinja = Environment(loader=FileSystemLoader("app/prompts"))
+        self.jinja = create_template_environment()
 
     async def extend_profile(
         self,

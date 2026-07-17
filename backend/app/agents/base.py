@@ -5,9 +5,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
-from jinja2 import Environment, FileSystemLoader
-
 from app.agents.style_rules import load_style_rules
+from app.agents.template_environment import create_template_environment
 from app.config import settings
 from app.llm.client import get_llm_client
 from app.llm.exceptions import LLMError
@@ -65,7 +64,7 @@ class BaseAgent(ABC):
 
     def __init__(self):
         self.llm = get_llm_client()
-        self.jinja = Environment(loader=FileSystemLoader("app/prompts"))
+        self.jinja = create_template_environment()
         self._style_constraint = _build_style_constraint()
 
     @property

@@ -3,9 +3,8 @@ import json
 import re
 from typing import Optional
 
-from jinja2 import Environment, FileSystemLoader
-
 from app.agents.style_rules import load_style_rules
+from app.agents.template_environment import create_template_environment
 from app.llm.client import collect_stream_text, get_llm_client
 from app.models.constraints import SceneConstraint
 
@@ -13,9 +12,11 @@ from app.models.constraints import SceneConstraint
 class ReviewerAgent:
     """审校Agent - 包含 AI 味检测（Phase 9 Layer 2）"""
 
+    STYLE_DIMENSIONS = ("dialogue_density", "pacing", "colloquialism")
+
     def __init__(self):
         self.llm = get_llm_client()
-        self.jinja = Environment(loader=FileSystemLoader("app/prompts"))
+        self.jinja = create_template_environment()
 
     async def review(
         self,
@@ -29,23 +30,26 @@ class ReviewerAgent:
         2. AI 味检测（规则扫描，新增）
         3. 风格一致性检查
         """
-        # 第一步：原有审校
-        base_result = await self._base_review(content, constraint, bible, previous_summaries)
-
-        # 第二步：AI 味检测
+        # 正则负责确定性硬伤；同一次 LLM 审校负责事实、连续性和整体风格软伤。
         ai_smell_issues = self._detect_ai_patterns(content)
+        constraint_issues = self._detect_constraint_issues(content, constraint)
+        base_result = await self._base_review(content, constraint, bible, previous_summaries)
 
         if base_result.get("status") == "error":
             return {
                 "status": "error",
-                "issues": ai_smell_issues,
+                "issues": ai_smell_issues + constraint_issues,
                 "error": base_result.get("error", "Reviewer unavailable"),
+                "style_review": {},
                 "resolved_foreshadowing_ids": [],
                 "entity_changes": [],
             }
 
-        # 第三步：合并
-        all_issues = base_result.get("issues", []) + ai_smell_issues
+        style_review = self._validated_style_review(base_result.get("style_review"))
+        base_issues = base_result.get("issues", [])
+        if not isinstance(base_issues, list):
+            base_issues = []
+        all_issues = base_issues + ai_smell_issues + constraint_issues
         resolved_foreshadowing_ids = self._validated_resolution_ids(base_result, constraint)
         entity_changes = self._validated_entity_changes(base_result, constraint)
 
@@ -57,6 +61,7 @@ class ReviewerAgent:
                 "status": "needs_rewrite",
                 "issues": all_issues,
                 "rewrite_hints": self._build_rewrite_hints(critical + major),
+                "style_review": style_review,
                 "resolved_foreshadowing_ids": [],
                 "entity_changes": [],
             }
@@ -66,6 +71,7 @@ class ReviewerAgent:
                 "status": "needs_rewrite",
                 "issues": all_issues,
                 "rewrite_hints": self._build_rewrite_hints(major),
+                "style_review": style_review,
                 "resolved_foreshadowing_ids": [],
                 "entity_changes": [],
             }
@@ -73,9 +79,28 @@ class ReviewerAgent:
         return {
             "status": "pass",
             "issues": all_issues,
+            "style_review": style_review,
             "resolved_foreshadowing_ids": resolved_foreshadowing_ids,
             "entity_changes": entity_changes,
         }
+
+    @classmethod
+    def _validated_style_review(cls, raw: object) -> dict[str, dict]:
+        if not isinstance(raw, dict):
+            return {}
+        validated = {}
+        for dimension in cls.STYLE_DIMENSIONS:
+            item = raw.get(dimension)
+            if not isinstance(item, dict):
+                continue
+            score = item.get("score")
+            evidence = item.get("evidence")
+            if isinstance(score, int) and 1 <= score <= 10 and isinstance(evidence, str):
+                validated[dimension] = {
+                    "score": score,
+                    "evidence": evidence.strip()[:1000],
+                }
+        return validated
 
     @staticmethod
     def _validated_resolution_ids(result: dict, constraint: SceneConstraint) -> list[str]:
@@ -193,6 +218,19 @@ class ReviewerAgent:
                     "locations": [self._ctx(content, m) for m in matches[:5]],
                 })
 
+        # ── 高置信叙事模式 ──────────────────────────────────
+        for rule in rules.get("narrative_pattern_rules", {}).get("rules", []):
+            matches = list(re.finditer(rule["pattern"], content))
+            if len(matches) > rule.get("threshold", 0):
+                issues.append({
+                    "id": rule["id"],
+                    "name": rule["name"],
+                    "severity": rule.get("severity", "major"),
+                    "count": len(matches),
+                    "message": rule["message"],
+                    "locations": [self._ctx(content, match) for match in matches[:5]],
+                })
+
         # ── 对话标签比例 ─────────────────────────────────────
         dialogue_lines = re.findall(r"[「『\"'].+?[」』\"']", content)
         tag_count = len(re.findall(
@@ -235,20 +273,52 @@ class ReviewerAgent:
         # ── 句式多样性 ───────────────────────────────────────
         sentences = re.split(r"[。！？\n]", content)
         lengths = [len(s) for s in sentences if 3 < len(s) < 200]
-        if lengths:
+        if len(lengths) >= 8:
             mean_len = sum(lengths) / len(lengths)
             variance = sum((length - mean_len) ** 2 for length in lengths) / len(lengths)
             std = variance ** 0.5
             if std < 5:
+                severity = "major" if std < 3.5 and mean_len < 14 else "minor"
                 issues.append({
                     "id": "SENTENCE_VARIANCE",
                     "name": "句式多样性",
-                    "severity": "minor",
+                    "severity": severity,
                     "count": round(std, 1),
-                    "message": f"句子长度标准差 {std:.1f}，过于均匀",
+                    "message": (
+                        f"句子平均 {mean_len:.1f} 字、长度标准差 {std:.1f}，"
+                        "节奏过于均匀"
+                    ),
                 })
 
         return issues
+
+    @staticmethod
+    def _detect_constraint_issues(
+        content: str,
+        constraint: SceneConstraint,
+    ) -> list[dict]:
+        """Check deterministic output constraints that should not depend on LLM judgment."""
+        actual_chars = len(re.sub(r"\s+", "", content))
+        maximum_chars = round(constraint.word_budget * 1.15)
+        if actual_chars <= maximum_chars:
+            return []
+
+        description = (
+            f"正文约 {actual_chars} 字，超过 {constraint.word_budget} 字预算的允许上限 "
+            f"{maximum_chars} 字。"
+        )
+        return [
+            {
+                "id": "WORD_BUDGET_OVERRUN",
+                "name": "字数预算超限",
+                "severity": "critical",
+                "category": "constraint",
+                "count": actual_chars,
+                "message": description,
+                "description": description,
+                "suggestion": "删去重复解释和非必要铺陈，保留完整的触发、感知、动作与场景转折。",
+            }
+        ]
 
     def _ctx(self, content: str, match: re.Match, width: int = 30) -> str:
         """提取匹配位置的上下文"""

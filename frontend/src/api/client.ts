@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { getApiBaseUrl, tokenStorage } from './http';
+import { getApiBaseUrl, redirectToLogin, tokenStorage } from './http';
 
 export const getToken = tokenStorage.get;
 
@@ -25,8 +25,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      tokenStorage.clear();
-      window.location.href = '/login';
+      redirectToLogin();
     }
     return Promise.reject(error);
   }

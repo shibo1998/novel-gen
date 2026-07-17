@@ -5,10 +5,10 @@ import time
 from datetime import datetime
 from uuid import UUID
 
-from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.template_environment import create_template_environment
 from app.llm.client import collect_stream_text, get_llm_client
 from app.models.domain import (
     Chapter,
@@ -32,7 +32,7 @@ class DHOService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.llm = get_llm_client()
-        self.jinja = Environment(loader=FileSystemLoader("app/prompts"))
+        self.jinja = create_template_environment()
 
     async def generate_candidate(
         self,
